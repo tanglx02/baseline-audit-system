@@ -12,7 +12,7 @@ async function gen() {
   if (!r.ok) { msg.className = 'msg err'; msg.style.display = 'block'; msg.textContent = '生成失败：' + r.error; return; }
   document.getElementById('out').value = r.keys.join('\n');
   msg.className = 'msg ok'; msg.style.display = 'block';
-  msg.textContent = `成功生成 ${r.keys.length} 个卡密（有效期：${expiresAt || '永久'}）。`;
+  msg.textContent = `成功生成 ${r.keys.length} 个卡密（有效期：${expiresAt || '永久'}）。注意：卡密为一次性使用，在目标系统「授权」页激活后立即失效，不可重复激活；如要再次授权，请使用新的卡密。`;
 }
 function clearOut() {
   document.getElementById('out').value = '';

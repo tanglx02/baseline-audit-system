@@ -68,6 +68,13 @@ CREATE TABLE IF NOT EXISTS issued_licenses (
   note TEXT,
   raw_license TEXT
 );
+CREATE TABLE IF NOT EXISTS used_cardkeys (
+  signature TEXT PRIMARY KEY,
+  card_payload TEXT,
+  redeemed_at TEXT,
+  redeemed_by TEXT,
+  raw_license TEXT
+);
 `);
 
 // ---------------------------------------------------------------------------
@@ -179,6 +186,24 @@ function getIssuedLicenses() {
   return db.prepare('SELECT * FROM issued_licenses ORDER BY id DESC').all();
 }
 
+// ---------------------------------------------------------------------------
+// 卡密核销（一次性使用）
+// ---------------------------------------------------------------------------
+function isCardKeyUsed(signature) {
+  const row = db.prepare('SELECT 1 FROM used_cardkeys WHERE signature = ?').get(signature);
+  return !!row;
+}
+
+function markCardKeyUsed({ signature, payload, raw_license, redeemed_by }) {
+  db.prepare(`INSERT OR IGNORE INTO used_cardkeys (signature, card_payload, redeemed_at, redeemed_by, raw_license)
+    VALUES (?, ?, ?, ?, ?)`)
+    .run(signature, JSON.stringify(payload || {}), new Date().toISOString(), redeemed_by || '', raw_license || '');
+}
+
+function getUsedCardKeys() {
+  return db.prepare('SELECT * FROM used_cardkeys ORDER BY id DESC').all();
+}
+
 module.exports = {
   db,
   upsertServer,
@@ -194,5 +219,8 @@ module.exports = {
   getDashboardStats,
   insertIssuedLicense,
   getIssuedLicenses,
+  isCardKeyUsed,
+  markCardKeyUsed,
+  getUsedCardKeys,
   INSTANCE_DIR,
 };

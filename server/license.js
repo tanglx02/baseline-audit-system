@@ -14,7 +14,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
-const { INSTANCE_DIR } = require('./db');
+const db = require('./db');
+const INSTANCE_DIR = db.INSTANCE_DIR;
 
 // 供应商签名密钥（实际部署应放在环境变量/配置中，生成机与本站须一致）
 const SECRET = process.env.LICENSE_SECRET || 'BASELINE-AUDIT-SYSTEM-VENDOR-SECRET-2026';
@@ -140,6 +141,28 @@ function deleteActiveLicense() {
   if (fs.existsSync(LICENSE_PATH)) fs.unlinkSync(LICENSE_PATH);
 }
 
+// ---------------------------------------------------------------------------
+// 卡密一次性核销
+//   - 卡密（typ:'card'）仅可使用一次：激活时登记签名，重复激活将被拒绝。
+//   - 机器码许可证不受影响（可重复激活/换机需重新授权，由机器码绑定控制）。
+// ---------------------------------------------------------------------------
+function redeemCardKey(licenseStr) {
+  if (!licenseStr || typeof licenseStr !== 'string') return { ok: false, reason: 'NO_LICENSE' };
+  const parts = licenseStr.trim().split('.');
+  if (parts.length !== 2) return { ok: false, reason: 'MALFORMED' };
+  const sig = parts[1];
+  // 已核销则拒绝（一次性语义）
+  if (db.isCardKeyUsed(sig)) {
+    return { ok: false, reason: 'ALREADY_USED', message: '该卡密已被使用，无法重复激活（卡密为一次性）。如需再次使用，请使用新的卡密。' };
+  }
+  const info = validateLicense(licenseStr);
+  if (!info.valid) return { ok: false, ...info };
+  if (info.mode !== 'card') return { ok: false, reason: 'NOT_CARD', message: '该许可证不是卡密类型。' };
+  db.markCardKeyUsed({ signature: sig, payload: info.payload, raw_license: licenseStr.trim() });
+  saveActiveLicense(licenseStr); // 写入 license.key 以便后续 loadActiveLicense 直接通过
+  return { ok: true, valid: true, mode: 'card', payload: info.payload, daysLeft: info.daysLeft };
+}
+
 module.exports = {
   SECRET,
   LICENSE_PATH,
@@ -151,4 +174,5 @@ module.exports = {
   loadActiveLicense,
   saveActiveLicense,
   deleteActiveLicense,
+  redeemCardKey,
 };

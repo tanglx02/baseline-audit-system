@@ -13,6 +13,7 @@ const baseline = require('./baseline_reader');
 const exporter = require('./export');
 const config = require('./config');
 const upgrade = require('./upgrade');
+const quickReport = require('./quick_report');
 const multer = require('multer');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -125,6 +126,14 @@ app.post('/license/generate', (req, res) => {
 app.post('/license/activate', (req, res) => {
   const { license: lic } = req.body;
   if (!lic) return res.status(400).json({ error: '缺少 license' });
+  const v = license.validateLicense(lic);
+  if (!v.valid) return res.json(v);
+  // 卡密（一次性）：激活时核销，重复激活将被拒绝
+  if (v.mode === 'card') {
+    const r = license.redeemCardKey(lic);
+    if (!r.ok) return res.json(r);
+    return res.json({ valid: true, mode: 'card', daysLeft: r.daysLeft, payload: r.payload, message: '卡密激活成功（已核销，不可重复使用）。' });
+  }
   const saved = license.saveActiveLicense(lic);
   res.json(saved);
 });
@@ -181,6 +190,25 @@ app.get('/history', (req, res) => {
   for (const s of servers) for (const sc of db.getServerScans(s.id)) all.push({ ...sc, hostname: s.hostname });
   all.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
   res.render('history', { scans: all });
+});
+
+app.get('/quick-report', (req, res) => {
+  res.render('quick_report', { modules: quickReport.listModules() });
+});
+
+app.post('/api/quick-report/generate', (req, res) => {
+  const { ip, hostname, title, modules } = req.body;
+  if (!ip || !String(ip).trim()) return res.status(400).json({ error: '请输入目标 IP' });
+  let mods;
+  try { mods = typeof modules === 'string' ? JSON.parse(modules) : (modules || []); }
+  catch (e) { return res.status(400).json({ error: 'modules 解析失败' }); }
+  if (!Array.isArray(mods) || mods.length === 0) return res.status(400).json({ error: '请至少选择一个基线模块' });
+  const report = quickReport.buildReport({ ip, hostname, title, modules: mods });
+  const html = exporter.exportHtml(report);
+  const ts = new Date().toISOString().slice(0, 10);
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Content-Disposition', `attachment; filename="quick_report_${String(ip).trim()}_${ts}.html"`);
+  res.send(html);
 });
 
 app.get('/catalog', (req, res) => res.render('catalog', { catalogs: baseline.getCatalogs() }));
