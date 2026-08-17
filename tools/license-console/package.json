@@ -1,0 +1,15 @@
+{
+  "name": "license-console",
+  "version": "1.0.0",
+  "private": true,
+  "description": "安全基线核查系统 - 授权后台软件 (Electron GUI，集成卡密生成与机器码许可证签发)",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-packager . LicenseConsole --platform=win32 --arch=x64 --out=../../dist-exe --overwrite --no-prune --electron-version=33.4.11"
+  },
+  "devDependencies": {
+    "electron": "33.4.11",
+    "electron-packager": "^17.1.2"
+  }
+}

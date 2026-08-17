@@ -139,3 +139,15 @@ table.datagrid thead tr td{text-align:center;font-weight:600}
 .mod-cats{margin:8px 0;display:flex;flex-wrap:wrap;gap:6px}
 .mod-status{display:flex;gap:16px;font-size:13px;margin-top:4px}
 .mod-status label{cursor:pointer;display:flex;align-items:center;gap:4px}
+
+/* 快速报告：逐项打分 */
+.qr-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 10px}
+.mod-toggle{margin-left:auto}
+.mod-bulk{display:flex;align-items:center;gap:8px;margin:6px 0 4px}
+.mod-score-pill{font-size:12px;color:var(--muted);background:#eef4ff;border:1px solid #d6e3ff;border-radius:10px;padding:2px 10px}
+.mod-score-pill .mod-score{color:var(--primary);font-weight:700}
+.mod-items{margin-top:6px;display:none}
+table.qr-items{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px;background:#fff}
+table.qr-items th,table.qr-items td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:middle}
+table.qr-items th{background:#f0f4fa;font-weight:600;font-size:12px}
+table.qr-items tr:nth-child(even){background:#fafcff}

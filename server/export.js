@@ -80,6 +80,19 @@ function catBars(cats) {
   return cats.map((c) => `<div class="catbar"><div class="lab">${esc(c.name)} <b>${c.score}%</b></div><div class="track"><div class="fill" style="width:${c.score}%"></div></div></div>`).join('');
 }
 
+// 单项得分：优先用传入的 score，否则按状态推导（合规 100 / 不合规 0 / 待人工 50）
+function itemScore(f) {
+  if (f.score != null && !isNaN(Number(f.score))) return Number(f.score);
+  if (f.status === 'pass') return 100;
+  if (f.status === 'fail') return 0;
+  return 50;
+}
+function statusBadge(status) {
+  const map = { pass: ['#1a7f37', '合规'], fail: ['#c0341d', '不合规'], manual: ['#e08a00', '待人工'], unknown: ['#8a94a6', '未知'] };
+  const [color, text] = map[status] || ['#8a94a6', status || '未知'];
+  return `<span style="color:${color};font-weight:600">${text}</span>`;
+}
+
 function exportHtml(report) {
   const s = report.server;
   const t = report.totals;
@@ -155,7 +168,7 @@ function exportHtml(report) {
 
   const summaryRows = groups.map((g) => {
     const score = g.counts.pass + g.counts.fail + g.counts.manual + g.counts.unknown;
-    const sc = score ? ((g.counts.pass / score) * 100).toFixed(1) : '0.0';
+    const sc = g.score != null ? Number(g.score).toFixed(1) : (score ? ((g.counts.pass / score) * 100).toFixed(1) : '0.0');
     return `<tr style="text-align:center"><td>${esc(s.hostname)}</td><td>—</td><td>${esc(g.target_label || g.target_type)}</td><td>${sc}%</td><td>${score}</td><td>${g.counts.pass}</td><td>${g.counts.fail}</td><td>${g.counts.manual}</td><td>${g.counts.unknown}</td></tr>`;
   }).join('');
   const summary = `
@@ -189,6 +202,12 @@ function exportHtml(report) {
     <table class="datagrid"><thead><tr><td style="width:30%">名称</td><td>IP</td><td>类别</td><td>失败原因</td></tr></thead><tbody>${failListRows}</tbody></table>
   </div>`;
 
+  // 核查项明细：逐项列出每个检查项（编号/核查项/类别/级别/实测值/期望/状态/得分）
+  const detailSection = groups.map((g) => {
+    const rows = g.items.map((f) => `<tr style="text-align:center"><td class="mono" style="text-align:left">${esc(f.item_id)}</td><td style="text-align:left">${esc(f.name)}</td><td>${esc(f.category || '—')}</td><td>${esc(f.severity || '—')}</td><td style="text-align:left">${esc(f.actual == null ? '' : f.actual)}</td><td>${esc(f.expected || '')}</td><td>${statusBadge(f.status)}</td><td><b>${itemScore(f)}</b></td></tr>`).join('') || '<tr><td colspan="8" style="text-align:center">无检查项</td></tr>';
+    return `<div class="item"><h2 class="item-title"><span>${esc(g.target_label || g.target_type)} 核查项明细（${g.items.length} 项）</span></h2><table class="datagrid"><thead><tr><td style="width:14%">编号</td><td style="width:26%">核查项</td><td>类别</td><td>级别</td><td>实测值</td><td>期望</td><td>状态</td><td>得分</td></tr></thead><tbody>${rows}</tbody></table></div>`;
+  }).join('');
+
   const toc = `
   <ul class="catalog">
     <li><a href="#title1">1.概述信息</a></li>
@@ -198,6 +217,7 @@ function exportHtml(report) {
     <li><a href="#title5">5.不合规检查项 TOP 10</a></li>
     <li><a href="#title6">6.不合规检查项汇总</a></li>
     <li><a href="#title7">7.核查失败列表</a></li>
+    <li><a href="#title8">8.核查项明细</a></li>
   </ul>`;
 
   const body = `
@@ -211,6 +231,8 @@ function exportHtml(report) {
     ${summary}
     ${topFail}
     ${failList}
+    <div class="item"><h2 class="item-title"><span id="title8">8.核查项明细</span></h2></div>
+    ${detailSection}
   </div>`;
 
   return `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>安全基线核查系统 安全分析报告 - ${esc(s.hostname)}</title><style>${CSS}</style></head><body><div class="content">${body}</div></body></html>`;

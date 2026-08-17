@@ -42,9 +42,11 @@
   <% report.groups.forEach(function(g){ %>
     <div class="report-item-title"><span><%= g.target_label %> <small style="font-weight:400">(<%= g.target_type %> · <%= g.platform %>)</small></span></div>
     <table class="datagrid">
-      <thead><tr><th>编号</th><th>级别</th><th>核查项</th><th>状态</th><th>实测值</th><th>期望</th><th>说明</th><th>加固建议</th></tr></thead>
+      <thead><tr><th>编号</th><th>级别</th><th>核查项</th><th>状态</th><th>实测值</th><th>期望</th><th>说明</th><th>加固建议</th><th>得分</th></tr></thead>
       <tbody>
-      <% g.items.forEach(function(f){ %>
+      <% g.items.forEach(function(f){
+           var sc = (f.score!=null && !isNaN(Number(f.score))) ? Number(f.score) : (f.status==='pass'?100:f.status==='fail'?0:50);
+      %>
         <tr>
           <td class="mono"><%= f.item_id %></td>
           <td class="sev-<%= f.severity %>"><%= f.severity %></td>
@@ -54,6 +56,7 @@
           <td><%= f.expected||'' %></td>
           <td><%= f.message||'' %></td>
           <td><%= f.remediation||'' %></td>
+          <td><b><%= sc %></b></td>
         </tr>
       <% }); %>
       </tbody>

@@ -72,11 +72,15 @@ function compRate(c) {
 
 /**
  * 构造与 export.exportHtml 兼容的 report 对象。
+ *
  * @param {Object} opts
  * @param {string} opts.ip           目标 IP（必填）
  * @param {string} [opts.hostname]   主机名（可选，缺省用 IP）
  * @param {string} [opts.title]      报告标题（可选）
- * @param {Array}  opts.modules       [{ catalogId, status:'pass'|'fail' }]
+ * @param {Array}  opts.modules       每项形如：
+ *        { catalogId, items?: [{ id, status:'pass'|'fail', score?:0..100 }] }
+ *        - 不传 items 或 items 为空：该模块全部按「合格」(score 100) 处理。
+ *        - 传了 items：仅按你指定的逐项状态/分数填充；模块得分=逐项均分。
  */
 function buildReport({ ip, hostname, title, modules }) {
   const serverName = (hostname && hostname.trim()) || (ip && ip.trim()) || '未命名设备';
@@ -86,21 +90,36 @@ function buildReport({ ip, hostname, title, modules }) {
   for (const m of modules || []) {
     const catalog = getCatalogItems(m.catalogId);
     if (!catalog) continue;
-    const statusAll = m.status === 'fail' ? 'fail' : 'pass';
-    const items = (catalog.items || []).map((it) => ({
-      item_id: it.id || '',
-      category: it.category || '未分类',
-      subsystem: it.subsystem || '',
-      name: it.name || '',
-      severity: it.severity || '—',
-      status: statusAll,
-      actual: statusAll === 'pass' ? '符合' : '不符合',
-      expected: (it.judge && it.judge.value) ? String(it.judge.value) : '',
-      message: '',
-      remediation: it.remediation || '',
-      reference: it.reference || '',
-    }));
+    // 用户的逐项选择：id -> {status, score}
+    const userSel = {};
+    if (Array.isArray(m.items)) for (const it of m.items) if (it && it.id) userSel[String(it.id)] = it;
+    const hasSel = Object.keys(userSel).length > 0;
+
+    const items = (catalog.items || []).map((it) => {
+      const sel = userSel[String(it.id)] || {};
+      const status = sel.status === 'fail' ? 'fail' : 'pass';
+      let score = sel.score;
+      if (score === '' || score == null) score = status === 'pass' ? 100 : 0;
+      score = Math.max(0, Math.min(100, Number(score) || 0));
+      return {
+        item_id: it.id || '',
+        category: it.category || '未分类',
+        subsystem: it.subsystem || '',
+        name: it.name || '',
+        severity: it.severity || '—',
+        status,
+        score,
+        actual: status === 'pass' ? '符合' : '不符合',
+        expected: (it.judge && it.judge.value) ? String(it.judge.value) : '',
+        message: '',
+        remediation: it.remediation || '',
+        reference: it.reference || '',
+      };
+    });
+
     const counts = countStatus(items);
+    const totalScore = items.reduce((a, f) => a + (Number(f.score) || 0), 0);
+    const avgScore = items.length ? Math.round(totalScore / items.length) : 0;
     groups.push({
       target_type: catalog.id,
       target_label: catalog.description || catalog.id,
@@ -109,14 +128,22 @@ function buildReport({ ip, hostname, title, modules }) {
       items,
       counts,
       compliance: compRate(counts),
+      score: avgScore,
     });
     if (catalog.platform === 'windows') mainPlatform = 'windows';
+    // 标记是否使用了逐项选择（便于调试/校验，不影响渲染）
+    void hasSel;
   }
 
   const all = groups.flatMap((g) => g.items);
   const totals = countStatus(all);
   totals.compliance = compRate(totals);
   totals.total = all.length;
+  // 全局得分 = 各模块得分的算术平均（按模块等权，更贴近「整体得分」直觉）
+  if (groups.length) {
+    const sum = groups.reduce((a, g) => a + (Number(g.score) || 0), 0);
+    totals.score = Math.round(sum / groups.length);
+  }
 
   const nowIso = new Date().toISOString();
   return {

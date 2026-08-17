@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>授权后台软件 · 安全基线核查系统</title>
+  <style>
+    :root { --bg:#f5f7fa; --panel:#fff; --line:#e3e8ef; --accent:#2f6fed; --ok:#2e9e5b; --bad:#d8503a; --muted:#6b7686; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: -apple-system,"Microsoft YaHei",Segoe UI,Roboto,sans-serif; background:var(--bg); color:#1f2733; }
+    header { background:var(--accent); color:#fff; padding:14px 20px; font-size:18px; font-weight:600; }
+    header .sub { font-size:12px; font-weight:400; opacity:.9; margin-top:2px; }
+    .wrap { max-width:920px; margin:0 auto; padding:18px 20px 40px; }
+    .tabs { display:flex; gap:6px; flex-wrap:wrap; margin:14px 0; }
+    .tab { padding:8px 16px; border:1px solid var(--line); background:var(--panel); border-radius:8px; cursor:pointer; font-size:14px; }
+    .tab.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:14px; }
+    .panel h2 { margin:0 0 10px; font-size:16px; }
+    .muted { color:var(--muted); font-size:13px; }
+    label { display:block; margin:10px 0 4px; font-size:13px; font-weight:600; }
+    input, textarea, select { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:7px; font-size:13px; font-family:inherit; }
+    textarea { min-height:90px; resize:vertical; }
+    .mono { font-family: ui-monospace,Consolas,Menlo,monospace; word-break:break-all; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
+    .row > div { flex:1; min-width:180px; }
+    button { background:var(--accent); color:#fff; border:none; padding:9px 16px; border-radius:7px; cursor:pointer; font-size:13px; }
+    button.sec { background:#eef1f6; color:#1f2733; }
+    button:active { transform:translateY(1px); }
+    .msg { margin-top:12px; font-size:13px; padding:10px 12px; border-radius:8px; }
+    .ok { background:#e8f6ec; color:var(--ok); }
+    .err { background:#fdecea; color:var(--bad); }
+    .info { background:#eaf2ff; color:var(--accent); }
+    .out { margin-top:10px; padding:10px; background:#f0f3f8; border-radius:7px; font-size:12.5px; white-space:pre-wrap; word-break:break-all; max-height:240px; overflow:auto; }
+    .hidden { display:none; }
+    .hint { font-size:12px; color:var(--muted); margin-top:6px; }
+    ol { padding-left:20px; line-height:1.9; }
+  </style>
+</head>
+<body>
+  <header>
+    授权后台软件 · LicenseConsole
+    <div class="sub">安全基线核查系统 · 集成「卡密生成」与「机器码许可证签发」两种签发方式</div>
+  </header>
+  <div class="wrap">
+    <div class="tabs">
+      <div class="tab active" data-tab="card">卡密生成</div>
+      <div class="tab" data-tab="machine">机器码授权</div>
+      <div class="tab" data-tab="verify">校验</div>
+      <div class="tab" data-tab="help">帮助</div>
+    </div>
+
+    <!-- 卡密生成 -->
+    <section id="tab-card" class="panel">
+      <h2>卡密生成（不绑定机器，一次性使用）</h2>
+      <p class="muted">批量生成卡密，客户在网站「授权」页直接粘贴激活。卡密不绑定机器、可跨服务器使用，但<b>每个卡密仅可激活一次</b>。</p>
+      <div class="row">
+        <div>
+          <label>生成数量</label>
+          <input id="card-count" type="number" min="1" max="100000" value="10" />
+        </div>
+        <div>
+          <label>有效期至（留空=永久）</label>
+          <input id="card-exp" type="text" placeholder="例如 2099-12-31" />
+        </div>
+        <div>
+          <label>功能范围</label>
+          <select id="card-feat">
+            <option value="all">全部(all)</option>
+            <option value="db">仅数据库(db)</option>
+            <option value="mw">仅中间件(mw)</option>
+            <option value="host">仅主机(host)</option>
+          </select>
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button id="btn-card-gen">生成卡密</button>
+        <button class="sec" id="btn-card-copy">复制全部</button>
+        <button class="sec" id="btn-card-save">导出为文件</button>
+        <button class="sec" id="btn-card-clear">清空</button>
+      </div>
+      <div id="card-msg" class="msg info hidden"></div>
+      <label style="margin-top:14px">生成的卡密（每行一个）</label>
+      <textarea id="card-out" class="mono" readonly placeholder="点击「生成卡密」后在此显示"></textarea>
+    </section>
+
+    <!-- 机器码授权 -->
+    <section id="tab-machine" class="panel hidden">
+      <h2>机器码许可证签发（绑定指定机器）</h2>
+      <p class="muted">客户提供其部署服务器的「本机机器码」（在网站授权页可复制），填入下方生成<b>绑定该机器</b>的许可证。客户把许可证字符串回贴到网站「授权」页即可激活。</p>
+      <label>目标机器码 machineCode</label>
+      <textarea id="mc-input" class="mono" placeholder="粘贴客户提供的机器码（一长串十六进制字符）"></textarea>
+      <div class="row" style="margin-top:10px">
+        <div>
+          <label>有效期至 expiresAt（YYYY-MM-DD，留空=永久）</label>
+          <input id="mc-exp" placeholder="2099-12-31" />
+        </div>
+        <div>
+          <label>功能模块 features（逗号分隔）</label>
+          <input id="mc-feat" value="all" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button id="btn-mc-gen">生成许可证</button>
+        <button class="sec" id="btn-mc-copy">复制许可证</button>
+        <button class="sec" id="btn-mc-save">保存为文件</button>
+      </div>
+      <div id="mc-msg" class="msg info hidden"></div>
+      <label style="margin-top:14px">许可证字符串</label>
+      <textarea id="mc-out" class="mono" readonly placeholder="点击「生成许可证」后在此显示"></textarea>
+    </section>
+
+    <!-- 校验 -->
+    <section id="tab-verify" class="panel hidden">
+      <h2>校验卡密 / 许可证</h2>
+      <p class="muted">粘贴卡密或机器码许可证，校验签名与有效期，并显示其类型、有效期、功能与绑定机器码。</p>
+      <label>令牌字符串</label>
+      <textarea id="ver-in" class="mono" placeholder="粘贴卡密或机器码许可证"></textarea>
+      <div class="row" style="margin-top:12px">
+        <button id="btn-ver">校验</button>
+      </div>
+      <div id="ver-out" class="out hidden"></div>
+    </section>
+
+    <!-- 帮助 -->
+    <section id="tab-help" class="panel hidden">
+      <h2>使用流程</h2>
+      <h3 style="margin-top:6px">方式一：卡密激活（推荐）</h3>
+      <ol>
+        <li>在本软件「卡密生成」页设置数量与有效期，点击「生成卡密」。</li>
+        <li>把卡密发给客户（可导出为 txt 文件）。</li>
+        <li>客户在网站「授权」页粘贴卡密 → 点击「激活」即生效。<b>卡密一次性，激活后失效。</b></li>
+      </ol>
+      <h3 style="margin-top:10px">方式二：机器码离线授权</h3>
+      <ol>
+        <li>客户在网站「授权」页复制「本机机器码」并发给你。</li>
+        <li>在本软件「机器码授权」页粘贴该机器码 + 设置有效期 → 「生成许可证」。</li>
+        <li>把许可证字符串发回客户，客户在网站「授权」页粘贴 → 「激活」即生效。<b>该许可证仅绑定该机器，换机需重新签发。</b></li>
+      </ol>
+      <p class="muted" style="margin-top:8px">两种方式均采用 HMAC-SHA256 离线签名校验，密钥须与网站一致（默认一致，除非服务器设置了 LICENSE_SECRET 环境变量）。</p>
+    </section>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

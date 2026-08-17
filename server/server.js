@@ -196,6 +196,22 @@ app.get('/quick-report', (req, res) => {
   res.render('quick_report', { modules: quickReport.listModules() });
 });
 
+// 返回某模块的检查项清单（供前端逐项展开勾选/打分）
+app.get('/api/quick-report/catalog/:id', (req, res) => {
+  const cat = quickReport.getCatalogItems(req.params.id);
+  if (!cat) return res.status(404).json({ error: 'catalog not found' });
+  res.json({
+    id: cat.id,
+    label: cat.description || cat.id,
+    items: (cat.items || []).map((it) => ({
+      id: it.id || '',
+      name: it.name || '',
+      category: it.category || '未分类',
+      severity: it.severity || '—',
+    })),
+  });
+});
+
 app.post('/api/quick-report/generate', (req, res) => {
   const { ip, hostname, title, modules } = req.body;
   if (!ip || !String(ip).trim()) return res.status(400).json({ error: '请输入目标 IP' });

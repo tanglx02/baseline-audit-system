@@ -2,8 +2,8 @@
 <%- include('_nav', {active:'quick-report'}) %>
 <main class="container">
   <h1>快速报告生成</h1>
-  <p class="muted">没时间上传脚本跑？直接选择基线模块、填写目标 IP、指定每个模块「合格 / 不合格」，一键生成最终 HTML 报告。报告基于真实基线检查项构造，格式与正常扫描报告一致。</p>
-  <p class="hint warn">提示：快速报告未按实际执行核查脚本，仅按您指定的合格/不合格状态填充。用于演示或预检时请如实标注。</p>
+  <p class="muted">没时间上传脚本跑？选择基线模块、填写目标 IP，并<b>逐项指定「合格/不合格」与「得分」</b>，一键生成最终 HTML 报告。报告基于真实基线检查项构造，含完整核查项明细。</p>
+  <p class="hint warn">提示：快速报告未实际执行核查脚本，仅按您指定的逐项状态/得分填充。用于演示或预检时请如实标注。</p>
 
   <div class="panel">
     <h2>1. 目标信息</h2>
@@ -24,8 +24,14 @@
   </div>
 
   <div class="panel">
-    <h2>2. 选择基线模块并指定结论</h2>
-    <p class="muted">勾选要纳入报告的模块；每个模块选择「合格」（全部检查项合规）或「不合格」（全部检查项不合规）。</p>
+    <h2>2. 选择基线模块并逐项打分</h2>
+    <p class="muted">勾选要纳入报告的模块，点击「展开检查项」可逐项设置合格/不合格与得分（0-100）。未展开的模块默认全部合格(100分)。</p>
+    <div class="qr-toolbar">
+      <button type="button" class="btn btn-sm" onclick="expandAll(true)">全部展开</button>
+      <button type="button" class="btn btn-sm" onclick="expandAll(false)">全部折叠</button>
+      <button type="button" class="btn btn-sm" onclick="setAllModules('pass')">全部模块设为合格</button>
+      <button type="button" class="btn btn-sm" onclick="setAllModules('fail')">全部模块设为不合格</button>
+    </div>
     <div id="modList" class="mod-list">
       <% modules.forEach(function(m){ %>
       <div class="mod-card" data-id="<%= m.id %>">
@@ -36,16 +42,20 @@
           </label>
           <span class="tag"><%= m.platform %></span>
           <span class="tag"><%= m.item_count %> 项</span>
+          <button type="button" class="btn btn-sm mod-toggle">展开检查项</button>
+          <span class="mod-score-pill">模块得分：<b class="mod-score">100</b></span>
         </div>
         <div class="mod-cats">
           <% Object.keys(m.categories).forEach(function(cat){ %>
             <span class="chip"><%= cat %> ×<%= m.categories[cat] %></span>
           <% }); %>
         </div>
-        <div class="mod-status">
-          <label><input type="radio" name="st_<%= m.id %>" value="pass" checked> 合格</label>
-          <label><input type="radio" name="st_<%= m.id %>" value="fail"> 不合格</label>
+        <div class="mod-bulk">
+          <button type="button" class="btn btn-sm" onclick="bulkSet(this,'pass')">全合格</button>
+          <button type="button" class="btn btn-sm" onclick="bulkSet(this,'fail')">全不合格</button>
+          <span class="muted" style="font-size:12px">逐项展开后可单独调整每项得分</span>
         </div>
+        <div class="mod-items" data-loaded="0"></div>
       </div>
       <% }); %>
     </div>
@@ -58,41 +68,180 @@
   </div>
 </main>
 <script>
-document.getElementById('genBtn').addEventListener('click', async function(){
-  var ip = document.getElementById('ip').value.trim();
-  if(!ip){ alert('请填写目标 IP'); return; }
-  var hostname = document.getElementById('hostname').value.trim();
-  var title = document.getElementById('title').value.trim();
-  var modules = [];
-  document.querySelectorAll('#modList .mod-card').forEach(function(card){
-    var chk = card.querySelector('.mod-check');
-    if(!chk.checked) return;
+(function(){
+  var modList = document.getElementById('modList');
+
+  // 拉取某模块检查项并渲染逐项行
+  async function loadItems(card){
+    var box = card.querySelector('.mod-items');
+    if (box.getAttribute('data-loaded') === '1') return;
     var id = card.getAttribute('data-id');
-    var st = card.querySelector('input[name="st_'+id+'"]:checked');
-    modules.push({ catalogId: id, status: st ? st.value : 'pass' });
-  });
-  if(modules.length === 0){ alert('请至少勾选一个基线模块'); return; }
-  var out = document.getElementById('genOut');
-  out.innerHTML = '<span class="badge">生成中…</span>';
-  try{
-    var r = await fetch('/api/quick-report/generate', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ ip: ip, hostname: hostname, title: title, modules: modules })
-    });
-    if(!r.ok){
-      var j = await r.json().catch(function(){ return {error: r.status + ' ' + r.statusText}; });
-      out.innerHTML = '<span class="badge bad">失败：' + (j.error || r.status) + '</span>';
-      return;
-    }
-    var blob = await r.blob();
-    var fn = 'quick_report_' + ip + '_' + new Date().toISOString().slice(0,10) + '.html';
-    var u = URL.createObjectURL(blob);
-    var a = document.createElement('a'); a.href = u; a.download = fn; document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(u);
-    out.innerHTML = '<span class="badge ok">已生成并下载：' + fn + '</span>';
-  }catch(err){
-    out.innerHTML = '<span class="badge bad">错误：' + err.message + '</span>';
+    box.innerHTML = '<div class="muted" style="padding:8px">加载中…</div>';
+    try{
+      var r = await fetch('/api/quick-report/catalog/' + encodeURIComponent(id));
+      if(!r.ok){ box.innerHTML = '<div class="muted">加载失败</div>'; return; }
+      var d = await r.json();
+      var html = '<table class="qr-items"><thead><tr><th>编号</th><th>核查项</th><th>类别</th><th>级别</th><th>合格</th><th>不合格</th><th>得分</th></tr></thead><tbody>';
+      d.items.forEach(function(it){
+        html += '<tr data-id="'+escapeHtml(it.id)+'">'
+          + '<td class="mono">'+escapeHtml(it.id)+'</td>'
+          + '<td>'+escapeHtml(it.name)+'</td>'
+          + '<td>'+escapeHtml(it.category)+'</td>'
+          + '<td>'+escapeHtml(it.severity)+'</td>'
+          + '<td style="text-align:center"><input type="radio" class="it-pass" name="it_'+id+'_'+escapeAttr(it.id)+'" checked onchange="onItemChange(this)"></td>'
+          + '<td style="text-align:center"><input type="radio" class="it-fail" name="it_'+id+'_'+escapeAttr(it.id)+'" onchange="onItemChange(this)"></td>'
+          + '<td style="text-align:center"><input type="number" class="it-score" min="0" max="100" value="100" style="width:64px" oninput="onScoreInput(this)"></td>'
+          + '</tr>';
+      });
+      html += '</tbody></table>';
+      box.innerHTML = html;
+      box.setAttribute('data-loaded','1');
+      recalcCardScore(card);
+    }catch(e){ box.innerHTML = '<div class="muted">加载失败：'+e.message+'</div>'; }
   }
-});
+
+  function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c];}); }
+  function escapeAttr(s){ return String(s==null?'':s).replace(/["']/g,''); }
+
+  // 展开/折叠
+  function toggleCard(card){
+    var box = card.querySelector('.mod-items');
+    var btn = card.querySelector('.mod-toggle');
+    var open = box.style.display !== 'none' && box.getAttribute('data-loaded')==='1';
+    if (open){ box.style.display = 'none'; btn.textContent = '展开检查项'; }
+    else { box.style.display = 'block'; btn.textContent = '折叠检查项'; loadItems(card); }
+  }
+  modList.querySelectorAll('.mod-card').forEach(function(card){
+    card.querySelector('.mod-toggle').addEventListener('click', function(){ toggleCard(card); });
+  });
+
+  window.expandAll = function(open){
+    modList.querySelectorAll('.mod-card').forEach(function(card){
+      var box = card.querySelector('.mod-items');
+      var btn = card.querySelector('.mod-toggle');
+      if (open){ box.style.display='block'; btn.textContent='折叠检查项'; loadItems(card); }
+      else { box.style.display='none'; btn.textContent='展开检查项'; }
+    });
+  };
+
+  // 单项合格/不合格切换：自动调整默认得分
+  window.onItemChange = function(radio){
+    var tr = radio.closest('tr');
+    var scoreInput = tr.querySelector('.it-score');
+    if (radio.classList.contains('it-pass')){ if(!scoreInput.dataset.touched) scoreInput.value = 100; }
+    else { if(!scoreInput.dataset.touched) scoreInput.value = 0; }
+    recalcCardScore(radio.closest('.mod-card'));
+  };
+  // 用户手动改得分 → 标记已触碰，不再被 radio 自动覆盖
+  window.onScoreInput = function(input){
+    input.dataset.touched = '1';
+    var v = parseInt(input.value,10);
+    if(isNaN(v)) v = 0;
+    v = Math.max(0, Math.min(100, v));
+    // 若得分与 radio 不一致，按得分反推状态：>=60 合格，否则不合格
+    var tr = input.closest('tr');
+    var pass = tr.querySelector('.it-pass');
+    var fail = tr.querySelector('.it-fail');
+    if (v >= 60){ pass.checked = true; } else { fail.checked = true; }
+    recalcCardScore(input.closest('.mod-card'));
+  };
+
+  // 模块级「全合格/全不合格」
+  window.bulkSet = function(btn, status){
+    var card = btn.closest('.mod-card');
+    var box = card.querySelector('.mod-items');
+    if (box.getAttribute('data-loaded') !== '1'){ loadItems(card).then(function(){ applyBulk(card, status); }); }
+    else { applyBulk(card, status); }
+  };
+  function applyBulk(card, status){
+    card.querySelectorAll('.qr-items tbody tr').forEach(function(tr){
+      var pass = tr.querySelector('.it-pass');
+      var fail = tr.querySelector('.it-fail');
+      var score = tr.querySelector('.it-score');
+      if (status === 'pass'){ pass.checked = true; score.value = 100; }
+      else { fail.checked = true; score.value = 0; }
+      delete score.dataset.touched;
+    });
+    recalcCardScore(card);
+  }
+
+  // 全部模块快速设合格/不合格（加载并应用）
+  window.setAllModules = function(status){
+    var cards = modList.querySelectorAll('.mod-card');
+    var pending = 0;
+    cards.forEach(function(card){
+      var box = card.querySelector('.mod-items');
+      var btn = card.querySelector('.mod-toggle');
+      if (box.getAttribute('data-loaded') !== '1'){
+        pending++;
+        box.style.display='block'; btn.textContent='折叠检查项';
+        loadItems(card).then(function(){ applyBulk(card, status); if(--pending===0) {} });
+      } else { applyBulk(card, status); }
+    });
+  };
+
+  // 重算模块得分（逐项均分）
+  function recalcCardScore(card){
+    var rows = card.querySelectorAll('.qr-items tbody tr');
+    if(!rows.length){ card.querySelector('.mod-score').textContent = '100'; return; }
+    var sum = 0; var n = 0;
+    rows.forEach(function(tr){
+      var v = parseInt(tr.querySelector('.it-score').value,10);
+      if(isNaN(v)) v = 0;
+      sum += Math.max(0,Math.min(100,v)); n++;
+    });
+    card.querySelector('.mod-score').textContent = n ? Math.round(sum/n) : 0;
+  }
+
+  // 收集数据并生成
+  document.getElementById('genBtn').addEventListener('click', async function(){
+    var ip = document.getElementById('ip').value.trim();
+    if(!ip){ alert('请填写目标 IP'); return; }
+    var hostname = document.getElementById('hostname').value.trim();
+    var title = document.getElementById('title').value.trim();
+    var modules = [];
+    var cards = modList.querySelectorAll('.mod-card');
+    for (var i=0;i<cards.length;i++){
+      var card = cards[i];
+      if(!card.querySelector('.mod-check').checked) continue;
+      var id = card.getAttribute('data-id');
+      var box = card.querySelector('.mod-items');
+      var mod = { catalogId: id };
+      if (box.getAttribute('data-loaded') === '1'){
+        var items = [];
+        card.querySelectorAll('.qr-items tbody tr').forEach(function(tr){
+          var pass = tr.querySelector('.it-pass').checked;
+          var score = parseInt(tr.querySelector('.it-score').value,10);
+          if(isNaN(score)) score = pass?100:0;
+          items.push({ id: tr.getAttribute('data-id'), status: pass?'pass':'fail', score: score });
+        });
+        mod.items = items;
+      }
+      modules.push(mod);
+    }
+    if(modules.length === 0){ alert('请至少勾选一个基线模块'); return; }
+    var out = document.getElementById('genOut');
+    out.innerHTML = '<span class="badge">生成中…</span>';
+    try{
+      var r = await fetch('/api/quick-report/generate', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ ip: ip, hostname: hostname, title: title, modules: modules })
+      });
+      if(!r.ok){
+        var j = await r.json().catch(function(){ return {error: r.status + ' ' + r.statusText}; });
+        out.innerHTML = '<span class="badge bad">失败：' + (j.error || r.status) + '</span>';
+        return;
+      }
+      var blob = await r.blob();
+      var fn = 'quick_report_' + ip + '_' + new Date().toISOString().slice(0,10) + '.html';
+      var u = URL.createObjectURL(blob);
+      var a = document.createElement('a'); a.href = u; a.download = fn; document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(u);
+      out.innerHTML = '<span class="badge ok">已生成并下载：' + fn + '</span>';
+    }catch(err){
+      out.innerHTML = '<span class="badge bad">错误：' + err.message + '</span>';
+    }
+  });
+})();
 </script>
 <%- include('_foot') %>
