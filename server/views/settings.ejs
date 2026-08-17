@@ -3,23 +3,21 @@
 <main class="container">
   <h1>系统设置</h1>
   <div class="panel">
-    <h2>升级 · Git 仓库</h2>
-    <label>远程仓库地址</label>
-    <input id="gitRemote" value="<%= cfg.upgrade.gitRemote %>" placeholder="https://github.com/your/repo.git" />
-    <label>跟踪分支</label>
-    <input id="gitBranch" value="<%= cfg.upgrade.gitBranch %>" placeholder="main" />
+    <h2>升级设置</h2>
     <label><input type="checkbox" id="autoRestart" <%= cfg.upgrade.autoRestart ? 'checked' : '' %> /> 应用更新后自动重启服务</label>
     <button class="btn btn-primary" onclick="save()">保存</button>
     <span id="msg" class="msg" style="display:inline-block;margin-left:8px"></span>
-    <p class="muted" style="margin-top:12px">配置后将在此页面的「升级」中用于在线检查与拉取更新。也可直接到 <a href="/upgrade">升级页</a> 操作。</p>
+    <p class="muted" style="margin-top:12px">
+      在线升级的仓库地址为系统内置固定值（<a href="https://github.com/tanglx02/baseline-audit-system" target="_blank" rel="noopener">GitHub</a> /
+      <a href="https://gitee.com/tanglx02/baseline-audit-system" target="_blank" rel="noopener">Gitee</a>），
+      在 <a href="/upgrade">升级页</a> 直接选择「从 GitHub / Gitee 获取升级」即可，无需在此填写。
+    </p>
   </div>
 </main>
 <script>
 async function save(){
-  const gitRemote=document.getElementById('gitRemote').value.trim();
-  const gitBranch=document.getElementById('gitBranch').value.trim()||'main';
   const autoRestart=document.getElementById('autoRestart').checked;
-  const r=await fetch('/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gitRemote,gitBranch,autoRestart})});
+  const r=await fetch('/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({autoRestart})});
   const d=await r.json();
   const m=document.getElementById('msg'); m.className='msg ok'; m.textContent= d.ok?'已保存':'保存失败';
 }

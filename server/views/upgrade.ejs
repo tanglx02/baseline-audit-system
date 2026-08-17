@@ -9,19 +9,22 @@
 
   <!-- 在线升级 -->
   <div class="panel">
-    <h2>在线升级（Git）</h2>
+    <h2>在线升级</h2>
     <% if (!gitAvailable) { %>
       <div class="msg err">服务器未安装 git，无法使用在线升级。请改用下方「离线升级」。</div>
+    <% } else { %>
+      <p class="muted">选择升级源，系统将自动检查并拉取最新版本（无需手动填写仓库地址）：</p>
+      <div class="source-grid">
+        <% sources.forEach(function(s){ %>
+          <div class="source-card">
+            <div class="source-name"><%= s.label %></div>
+            <div class="source-url"><%= s.url %></div>
+            <button class="btn btn-primary" onclick="checkOnline('<%= s.key %>')">从 <%= s.label %> 获取升级</button>
+            <div id="msg-<%= s.key %>" class="msg" style="margin-top:10px"></div>
+          </div>
+        <% }) %>
+      </div>
     <% } %>
-    <label>Git 远程仓库地址</label>
-    <input id="gitRemote" value="<%= cfg.upgrade.gitRemote %>" placeholder="例如 https://github.com/your/repo.git" />
-    <label>跟踪分支</label>
-    <input id="gitBranch" value="<%= cfg.upgrade.gitBranch %>" placeholder="main" />
-    <button class="btn btn-sm" onclick="saveRemote()">保存仓库配置</button>
-    <span id="remoteMsg" class="msg" style="display:inline-block;margin-left:8px"></span>
-    <hr style="margin:16px 0;border:none;border-top:1px solid var(--line)" />
-    <button class="btn btn-primary" onclick="checkOnline()">检查更新</button>
-    <div id="onlineMsg" class="msg" style="margin-top:12px"></div>
   </div>
 
   <!-- 离线升级 -->
@@ -35,43 +38,29 @@
 
   <div class="panel">
     <h2>升级设置</h2>
-    <label><input type="checkbox" id="autoRestart" <%= cfg.upgrade.autoRestart ? 'checked' : '' %> /> 应用更新后自动重启服务</label>
-    <button class="btn btn-sm" onclick="saveSettings()">保存设置</button>
+    <p class="muted">更多设置（如自动重启）请到 <a href="/settings">系统设置</a> 页配置。</p>
   </div>
 </main>
 
 <script>
-async function saveRemote(){
-  const remote=document.getElementById('gitRemote').value.trim();
-  const branch=document.getElementById('gitBranch').value.trim()||'main';
-  const r=await fetch('/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gitRemote:remote,gitBranch:branch})});
-  const d=await r.json();
-  const m=document.getElementById('remoteMsg');
-  m.className='msg ok'; m.textContent= d.ok?'已保存':'保存失败';
-}
-async function saveSettings(){
-  const autoRestart=document.getElementById('autoRestart').checked;
-  await fetch('/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({autoRestart})});
-  const m=document.getElementById('remoteMsg'); m.className='msg ok'; m.textContent='设置已保存';
-}
-async function checkOnline(){
-  const m=document.getElementById('onlineMsg'); m.className='msg'; m.textContent='检查中…';
+async function checkOnline(source){
+  const m=document.getElementById('msg-'+source); m.className='msg'; m.textContent='检查中…';
   try{
-    const r=await fetch('/api/upgrade/check',{method:'POST'});
+    const r=await fetch('/api/upgrade/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source})});
     const d=await r.json();
     if(!d.available){ m.className='msg err'; m.textContent= d.message||'无法检查更新'; return; }
     if(d.hasUpdate){
       m.className='msg ok';
-      m.innerHTML=`发现新版本 <b>v${d.latest}</b>（当前 v${d.current}）。<button class="btn btn-sm" onclick="doOnline()">立即更新</button>`;
+      m.innerHTML=`发现新版本 <b>v${d.latest}</b>（当前 v${d.current}）。<button class="btn btn-sm" onclick="doOnline('${source}')">立即更新</button>`;
     } else {
       m.className='msg'; m.textContent=`已是最新版本（v${d.current}）。`;
     }
   }catch(e){ m.className='msg err'; m.textContent='检查失败：'+e.message; }
 }
-async function doOnline(){
-  const m=document.getElementById('onlineMsg'); m.className='msg'; m.textContent='正在更新并重启…';
+async function doOnline(source){
+  const m=document.getElementById('msg-'+source); m.className='msg'; m.textContent='正在更新并重启…';
   try{
-    const r=await fetch('/api/upgrade/online',{method:'POST'});
+    const r=await fetch('/api/upgrade/online',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source})});
     const d=await r.json();
     if(d.ok){ m.className='msg ok'; m.textContent='更新成功，服务重启中，请刷新页面。'; setTimeout(()=>location.reload(),3000); }
     else { m.className='msg err'; m.textContent='更新失败：'+(d.message||d.error); }

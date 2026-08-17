@@ -1,7 +1,8 @@
 'use strict';
 /**
  * config.js — 项目级配置（持久化到项目根 config.json）
- * 目前主要存放升级相关设置：git 远程仓库地址 / 分支 / 是否自动重启。
+ * 目前主要存放升级相关设置：应用更新后是否自动重启服务。
+ * 升级源（Gitee / GitHub）地址为内置固定值，见 server/upgrade.js，不在此配置。
  * 注意：config.json 属于用户配置，升级时不会被覆盖。
  */
 const fs = require('fs');
@@ -11,8 +12,6 @@ const CONFIG_PATH = path.join(ROOT, 'config.json');
 
 const DEFAULTS = {
   upgrade: {
-    gitRemote: '',      // 在线升级的 git 远程地址（留空则在线升级不可用）
-    gitBranch: 'main',  // 在线升级跟踪的分支
     autoRestart: true,  // 应用更新后是否自动重启服务
   },
 };

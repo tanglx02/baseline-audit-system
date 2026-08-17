@@ -247,7 +247,12 @@ app.get('/health', (req, res) => res.json({ ok: true, licensed: isLicensed() }))
 // ---------------------------------------------------------------------------
 app.get('/upgrade', (req, res) => {
   const cfg = config.getConfig();
-  res.render('upgrade', { cfg, current: upgrade.getCurrentVersion(), gitAvailable: upgrade.gitAvailable() });
+  res.render('upgrade', {
+    cfg,
+    sources: upgrade.getSources(),
+    current: upgrade.getCurrentVersion(),
+    gitAvailable: upgrade.gitAvailable(),
+  });
 });
 
 app.get('/settings', (req, res) => {
@@ -255,11 +260,9 @@ app.get('/settings', (req, res) => {
 });
 
 app.post('/settings', (req, res) => {
-  const { gitRemote, gitBranch, autoRestart } = req.body;
+  const { autoRestart } = req.body;
   const merged = config.saveConfig({
     upgrade: {
-      gitRemote: (gitRemote || '').trim(),
-      gitBranch: (gitBranch || 'main').trim(),
       autoRestart: autoRestart === 'true' || autoRestart === true,
     },
   });
@@ -267,14 +270,14 @@ app.post('/settings', (req, res) => {
 });
 
 app.post('/api/upgrade/check', (req, res) => {
-  const cfg = config.getConfig();
-  res.json(upgrade.onlineCheck(cfg.upgrade.gitRemote, cfg.upgrade.gitBranch));
+  const { source } = req.body || {};
+  res.json(upgrade.onlineCheck(source));
 });
 
 app.post('/api/upgrade/online', (req, res) => {
-  const cfg = config.getConfig();
-  const r = upgrade.applyOnline(cfg.upgrade.gitRemote, cfg.upgrade.gitBranch);
-  if (r.ok && cfg.upgrade.autoRestart) { res.json({ ...r, restarting: true }); upgrade.restartService(); }
+  const { source } = req.body || {};
+  const r = upgrade.applyOnline(source);
+  if (r.ok && config.getConfig().upgrade.autoRestart) { res.json({ ...r, restarting: true }); upgrade.restartService(); }
   else res.json(r);
 });
 
