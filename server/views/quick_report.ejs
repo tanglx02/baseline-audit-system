@@ -2,7 +2,7 @@
 <%- include('_nav', {active:'quick-report'}) %>
 <main class="container">
   <h1>快速报告生成</h1>
-  <p class="muted">没时间上传脚本跑？选择基线模块、填写目标 IP，并<b>逐项指定「合格/不合格」与「得分」</b>，一键生成最终 HTML 报告。报告基于真实基线检查项构造，含完整核查项明细。</p>
+  <p class="muted">没时间上传脚本跑？选择基线模块、填写目标 IP，并<b>逐项指定「合格/不合格」与「得分」</b>，一键生成最终 HTML 报告。<b>每个勾选的基线模块会单独生成一份 HTML 报告</b>（多个模块时打包为 ZIP 下载）。</p>
   <p class="hint warn">提示：快速报告未实际执行核查脚本，仅按您指定的逐项状态/得分填充。用于演示或预检时请如实标注。</p>
 
   <div class="panel">
@@ -25,7 +25,7 @@
 
   <div class="panel">
     <h2>2. 选择基线模块并逐项打分</h2>
-    <p class="muted">勾选要纳入报告的模块，点击「展开检查项」可逐项设置合格/不合格与得分（0-100）。未展开的模块默认全部合格(100分)。</p>
+    <p class="muted">勾选要生成报告的模块（默认全部不选），点击「展开检查项」可逐项设置合格/不合格与得分（0-100）。未展开的模块默认全部合格(100分)。<b>每个勾选模块单独产出一份 HTML，多模块打包为 ZIP。</b></p>
     <div class="qr-toolbar">
       <button type="button" class="btn btn-sm" onclick="expandAll(true)">全部展开</button>
       <button type="button" class="btn btn-sm" onclick="expandAll(false)">全部折叠</button>
@@ -37,7 +37,7 @@
       <div class="mod-card" data-id="<%= m.id %>">
         <div class="mod-head">
           <label class="mod-pick">
-            <input type="checkbox" class="mod-check" checked>
+            <input type="checkbox" class="mod-check">
             <span class="mod-name"><%= m.label %></span>
           </label>
           <span class="tag"><%= m.platform %></span>
@@ -63,7 +63,8 @@
 
   <div class="panel">
     <h2>3. 生成报告</h2>
-    <button class="btn btn-primary" id="genBtn" type="button">生成并下载 HTML 报告</button>
+    <p class="muted">每个勾选的基线模块单独生成一份 HTML 报告；勾选多个模块时将打包为 ZIP 下载。</p>
+    <button class="btn btn-primary" id="genBtn" type="button">生成并下载报告</button>
     <div id="genOut" class="outbox"></div>
   </div>
 </main>
@@ -232,12 +233,16 @@
         out.innerHTML = '<span class="badge bad">失败：' + (j.error || r.status) + '</span>';
         return;
       }
+      var ctype = r.headers.get('Content-Type') || '';
+      var isZip = ctype.indexOf('zip') !== -1;
       var blob = await r.blob();
-      var fn = 'quick_report_' + ip + '_' + new Date().toISOString().slice(0,10) + '.html';
+      var ext = isZip ? 'zip' : 'html';
+      var base = isZip ? ('quick_reports_' + ip) : ('quick_report_' + ip);
+      var fn = base + '_' + new Date().toISOString().slice(0,10) + '.' + ext;
       var u = URL.createObjectURL(blob);
       var a = document.createElement('a'); a.href = u; a.download = fn; document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(u);
-      out.innerHTML = '<span class="badge ok">已生成并下载：' + fn + '</span>';
+      out.innerHTML = '<span class="badge ok">已生成并下载：' + fn + (isZip ? '（含每模块单独 HTML）' : '') + '</span>';
     }catch(err){
       out.innerHTML = '<span class="badge bad">错误：' + err.message + '</span>';
     }

@@ -218,13 +218,34 @@ app.post('/api/quick-report/generate', (req, res) => {
   let mods;
   try { mods = typeof modules === 'string' ? JSON.parse(modules) : (modules || []); }
   catch (e) { return res.status(400).json({ error: 'modules 解析失败' }); }
-  if (!Array.isArray(mods) || mods.length === 0) return res.status(400).json({ error: '请至少选择一个基线模块' });
-  const report = quickReport.buildReport({ ip, hostname, title, modules: mods });
-  const html = exporter.exportHtml(report);
+  if (!Array.isArray(mods) || mods.length === 0) return res.status(400).json({ error: '请至少勾选一个基线模块' });
+
   const ts = new Date().toISOString().slice(0, 10);
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="quick_report_${String(ip).trim()}_${ts}.html"`);
-  res.send(html);
+  const ipSafe = String(ip).trim().replace(/[^\w.-]/g, '_');
+  const host = hostname && String(hostname).trim();
+  const titleArg = title && String(title).trim();
+
+  // 单模块：直接返回一份 HTML
+  if (mods.length === 1) {
+    const report = quickReport.buildReport({ ip, hostname: host, title: titleArg, modules: [mods[0]] });
+    const html = exporter.exportHtml(report);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="quick_report_${ipSafe}_${mods[0].catalogId}_${ts}.html"`);
+    return res.send(html);
+  }
+
+  // 多模块：每个模块单独一份 HTML，打包为 ZIP
+  const AdmZip = require('adm-zip');
+  const zip = new AdmZip();
+  for (const m of mods) {
+    const report = quickReport.buildReport({ ip, hostname: host, title: titleArg, modules: [m] });
+    const html = exporter.exportHtml(report);
+    zip.addFile(`quick_report_${ipSafe}_${m.catalogId}_${ts}.html`, Buffer.from(html, 'utf-8'));
+  }
+  const buf = zip.toBuffer();
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="quick_reports_${ipSafe}_${ts}.zip"`);
+  return res.send(buf);
 });
 
 app.get('/catalog', (req, res) => res.render('catalog', { catalogs: baseline.getCatalogs() }));
