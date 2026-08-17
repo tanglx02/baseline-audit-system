@@ -4,7 +4,7 @@
 基线核查项以 YAML 作为**单一事实来源**，收集脚本与 Web 平台共用，解耦协作。
 
 > 本系统后端为 **Node.js + Express + 内置 `node:sqlite`**，目标机收集脚本为**纯 bash（Linux）/ 纯 PowerShell（Windows）**。
-> 自 v2 起已从 Python/Flask 重写为 Node.js，并新增：**按类型拆分的独立收集脚本**、**报告导出（HTML/CSV/Excel）**、**授权机（机器码 + 有效期绑定）**。
+> 自 v2 起已从 Python/Flask 重写为 Node.js，并新增：**按类型拆分的独立收集脚本**、**报告导出（HTML/CSV/Excel）**、**卡密激活（离线、不绑机器、可设有效期）**、**在线(git)/离线(压缩包) 升级**、**卡密生成机 exe**。
 > **运行环境要求：Node.js ≥ 22.13.0**（`node:sqlite` 自该版本起免 `--experimental-sqlite` 标志即可使用；生产环境建议 ≥ 24.15.0，已升为 Release Candidate 可上生产）。
 
 ## 覆盖范围
@@ -50,14 +50,19 @@
 ├── server/                   # Node.js + Express Web 平台（中心化报告）
 │   ├── server.js             # 入口（含授权网关中间件）
 │   ├── db.js                 # node:sqlite 数据层
-│   ├── license.js            # 授权校验（机器码 / 许可证校验，与 exe 同源算法）
+│   ├── license.js            # 授权校验（卡密 / 机器码许可证，与生成机同源算法）
+│   ├── upgrade.js            # 在线(git)/离线(压缩包) 升级：版本比对、备份、应用、重启
+│   ├── config.js             # 项目配置（git 远程仓库、分支、是否自动重启），持久化 config.json
 │   ├── baseline_reader.js    # 读 baseline YAML 供 /catalog 展示
-│   ├── export.js             # 导出 HTML / CSV / Excel
-│   └── views/                # EJS 模板（含只读 /license 状态页）
-├── tools/license-manager/    # 独立「授权管理机」（Electron GUI，打包为 Windows .exe）
+│   ├── export.js             # 导出 HTML / CSV / Excel（HTML 为云探同款版式）
+│   └── views/                # EJS 模板（/license 卡密激活页、/upgrade 升级页 等）
+├── tools/cardkey-generator/  # 独立「卡密生成机」（Electron GUI，打包为 Windows .exe）
 │   ├── main.js / preload.js / index.html / renderer.js
-│   ├── core/license-core.js  # 签发/校验算法，与 server/license.js 完全一致
-│   └── package.json          # npm run pack -> dist-exe/LicenseManager-*.exe
+│   ├── core/cardkey-core.js  # 卡密签发/校验算法，与 server/license.js 完全一致
+│   └── package.json          # npm run pack -> dist-exe/CardKeyGenerator-*.exe
+├── tools/license-manager/    # 旧的机器码授权管理机（已弃用，保留以备兼容）
+├── version.json              # 当前版本号（升级比对依据）
+├── config.json              # 升级配置（git 远程/分支/自动重启），用户配置不随升级覆盖
 ├── static/                   # 前端样式
 ├── package.json / .npmrc      # Node 依赖与镜像配置
 └── docs/design.md            # 设计文档
@@ -94,22 +99,22 @@ npm install                 # 安装 express/ejs/multer/exceljs/js-yaml（纯 JS
 npm start                   # 监听 http://127.0.0.1:5000
 ```
 
-首次打开会进入「**授权状态**」页（只读）。许可证的签发 / 激活 / 校验 / 吊销统一由独立的 **授权管理机（LicenseManager.exe）** 完成：
+首次打开会进入「**授权状态**」页。本系统使用**卡密激活**：在页面粘贴卡密即可激活，**无需登录服务器改文件、不绑定机器**。
 
-1. 在目标部署服务器上运行 `LicenseManager.exe` →「本机机器码」，复制其机器码；
-2. 厂商侧用 `LicenseManager.exe` →「生成许可证」填入机器码 + 有效期，得到许可证字符串；
-3. 客户在「激活」页选择服务器 `instance` 目录并粘贴许可证 → 写入 `server/instance/license.key`，平台即转为已授权（**无需重启**）。
+1. 供应商使用独立的「**卡密生成机（CardKeyGenerator.exe）**」批量生成卡密（可指定数量、有效期、功能范围）；
+2. 用户向供应商（**联系作者 QQ：54312795**）获取卡密；
+3. 在网站「授权状态」页把卡密粘贴进文本框 → 点「激活卡密」→ **即时生效，无需重启**。
 
-> 网站 `/license` 页仅展示本机机器码与授权状态，不再提供签发/激活表单；签发能力已移到 `LicenseManager.exe`。
-> 未授权时仅 `/license`、`/catalog`、`/download`、`/health` 可访问，其余页面重定向至授权页。
+> 卡密为离线签名令牌（`HMAC-SHA256`，算法与网站一致），不绑定机器，换机/重装后可重贴同一卡密。
+> 未授权时仅 `/license`、`/catalog`、`/download`、`/health`、`/upgrade` 可访问，其余页面重定向至授权页。
 
-**构建授权管理机（开发时）：**
+**构建卡密生成机（开发时）：**
 ```bash
-cd tools/license-manager
+cd tools/cardkey-generator
 npm install                                  # 安装 electron / electron-packager（走 npmmirror 镜像）
-npm run pack                                 # 打包为 dist-exe/LicenseManager-win32-x64/LicenseManager.exe
+npm run pack                                 # 打包为 dist-exe/CardKeyGenerator-win32-x64/CardKeyGenerator.exe
 ```
-该 `.exe` 为独立 Windows 程序（GUI），算法与 `server/license.js` 完全一致，生成的许可证可直接被 Web 系统激活。
+该 `.exe` 为独立 Windows 程序（GUI），其 `core/cardkey-core.js` 与 `server/license.js` 共用同一算法与默认密钥，生成的卡密可直接被网站激活。
 
 打开「上传报告」，上传第 1 步的 `results_*.json`，平台自动生成：
 - 概览仪表盘（服务器、扫描数、平均合规率）
@@ -124,15 +129,23 @@ node baseline/validate.js                # 校验全部 YAML 合法、id 全局�
 node collectors/build_collectors.js      # 改完 YAML 后重新生成 collectors/dist/ 下各类型脚本
 ```
 
-## 授权机制（授权机）
+## 授权机制（卡密）
 
-- **机器码** = `SHA256(hostname | platform | release | 首块网卡 MAC)`，本机唯一且稳定。
-- **许可证** = `base64url(payload).HMAC-SHA256(SECRET)`，payload = `{ machineCode, exp, feat, iat }`。
-  - `exp`：有效期（`YYYY-MM-DD`），过期即失效；
+- **卡密** = `base64url(payload).HMAC-SHA256(SECRET)`，payload = `{ typ:'card', exp, feat, iat, rnd }`。
+  - `typ:'card'`：卡密模式，校验时**不绑定机器**，可跨服务器使用；
+  - `exp`：有效期（`YYYY-MM-DD`，留空为永久），过期即失效；
   - `feat`：功能范围（如 `all`）；
   - 签名密钥默认 `'BASELINE-AUDIT-SYSTEM-VENDOR-SECRET-2026'`，可用环境变量 `LICENSE_SECRET` 覆盖。
-- **校验**：每次请求校验签名合法性、未过期、机器码匹配；任一不满足即视为未授权。
-- **签发入口**：独立的授权管理机 `tools/license-manager`（Electron GUI，打包为 `LicenseManager.exe`）负责签发 / 激活 / 校验 / 吊销；其 `core/license-core.js` 与 `server/license.js` 共用同一算法与默认密钥 `BASELINE-AUDIT-SYSTEM-VENDOR-SECRET-2026`（可用 `LICENSE_SECRET` 覆盖，需两端一致）。网站 `/license` 页为只读状态页。
+- **校验**：每次请求校验签名合法性、未过期；卡密不校验机器码。任一不满足即视为未授权。
+- **签发入口**：独立的「**卡密生成机**」`tools/cardkey-generator`（Electron GUI，打包为 `CardKeyGenerator.exe`）负责批量生成卡密；其 `core/cardkey-core.js` 与 `server/license.js` 共用同一算法与默认密钥（可用 `LICENSE_SECRET` 覆盖，需两端一致）。
+- 网站 `/license` 页直接在浏览器粘贴卡密即可激活（写入 `server/instance/license.key`），无需登录服务器。
+
+## 系统升级（在线 / 离线）
+
+- **在线升级（git）**：在「升级」页填写 git 远程仓库地址与分支并保存 → 点「检查更新」→ 系统 `git fetch` 比对远端 `version.json` → 若有新版点「立即更新」即 `git checkout` 拉取并（如需）重装依赖，随后自动重启。
+- **离线升级（压缩包）**：在「升级」页上传含 `version.json` 的源码 `.zip` → 系统比对版本号，仅当比当前更新时才覆盖应用（排除 `node_modules` / `server/instance` / `config.json` / `dist-exe` / `backups`），随后自动重启。
+- **安全**：任何更新前自动把当前源码备份到 `backups/<online|offline>-时间戳/`；自动重启可开关（设置项）。
+- 当前版本见 `version.json`；部署时通过宝塔「Node 项目」守护进程运行，`npm start` 即 `node server/server.js`。
 
 ## 合规率口径
 
@@ -153,7 +166,7 @@ node collectors/build_collectors.js      # 改完 YAML 后重新生成 collector
 
 | 格式 | 路由 | 说明 |
 |---|---|---|
-| HTML | `/export/:id/html` | 内联 CSS 单文件，可直接邮件发送或打印 |
+| HTML | `/export/:id/html` | 单文件、内联 CSS，版式对齐「云探合规管理系统安全分析报告」（目录/概述/分类统计/风险图表/不合规 TOP/失败列表） |
 | CSV  | `/export/:id/csv`  | 含 UTF-8 BOM，Excel 直接打开不乱码 |
 | Excel| `/export/:id/excel` | `.xlsx`，按分组多 sheet，便于汇总 |
 

@@ -105,27 +105,33 @@ numeric_leq / numeric_geq / file_perm_leq`。
 `compliance_rate = passed / (passed + failed)`。`manual` 与 `unknown` 不计入分母。
 理由：人工项与检测异常项无法判定是否合规，计入分母会虚高或虚低合规率。
 
-## 7. 授权机（license.js + 独立授权管理机 LicenseManager.exe）
+## 7. 授权（卡密激活 + 卡密生成机）
 
-- **机器码** `getMachineCode()` = `SHA256(hostname | platform | release | 首块网卡 MAC)`。
-- **签发** `generateLicense({ machineCode, expiresAt, features })`：`base64url(JSON).HMAC-SHA256(SECRET)`。
-  SECRET 默认 `'BASELINE-AUDIT-SYSTEM-VENDOR-SECRET-2026'`，可用 `LICENSE_SECRET` 覆盖（需两端一致）。
-- **校验** `validateLicense(str)`：验证签名、未过期（`exp`）、机器码匹配，返回 `{valid, payload, daysLeft, reason}`。
-- **独立授权管理机**：签发 / 激活 / 校验 / 吊销统一由 `tools/license-manager`（Electron GUI）完成，
-  打包为独立 Windows 程序 `LicenseManager.exe`（`npm run pack` → `dist-exe/LicenseManager-win32-x64/LicenseManager.exe`）。
-  其 `core/license-core.js` 与 `server/license.js` **共用同一算法与默认密钥**，已交叉验证可互相签发/校验。
-- **网站 `/license` 页为只读状态页**：仅展示本机机器码与授权状态，不再提供签发/激活表单。
-- **网关**：`server.js` 中未授权时仅放行 `/license`、`/catalog`、`/download`、`/health`、
-  `/static`、`/dist`；其余 GET 重定向至 `/license`，POST 返回 403。
-- 许可证存于 `server/instance/license.key`（由授权管理机「激活」写入），无重启即生效。
+- **卡密（推荐）**：`generateCardKey({ expiresAt, features })` 生成 `base64url(payload).HMAC-SHA256(SECRET)`，payload 不含机器码（`typ:'card'`）。
+  - 校验 `validateLicense` 对卡密**不绑定机器**，仅校验签名与有效期，换机/重装可重贴同一卡密。
+  - 网站 `/license` 页直接粘贴卡密激活（写入 `server/instance/license.key`），**无需登录服务器、无需重启**。
+  - 联系作者 **QQ：54312795** 获取卡密。
+- **机器码许可证（旧，向后兼容）**：`generateLicense({ machineCode, expiresAt, features })` 仍保留，校验时绑定机器码。
+- **卡密生成机**：`tools/cardkey-generator`（Electron GUI）批量生成卡密（数量/有效期/功能范围），
+  打包为 `dist-exe/CardKeyGenerator-win32-x64/CardKeyGenerator.exe`；其 `core/cardkey-core.js` 与 `server/license.js` **共用同一算法与默认密钥** `'BASELINE-AUDIT-SYSTEM-VENDOR-SECRET-2026'`（可用 `LICENSE_SECRET` 覆盖，需两端一致），已交叉验证互通。
+- **网关**：`server.js` 中未授权时仅放行 `/license`、`/catalog`、`/download`、`/health`、`/upgrade`、`/settings`、
+  `/static`、`/dist` 及 `/api/upgrade*`、`/api/settings`；其余 GET 重定向至 `/license`，POST 返回 403。
+
+## 7.5 系统升级（在线 git / 离线压缩包）
+
+- `server/upgrade.js` + `server/config.js`：
+  - **在线**：在「升级」页配置 git 远程地址与分支（存 `config.json`）→ `git fetch` 比对远端 `version.json` → 更新走 `git checkout -B <branch> <remote>/<branch>`。
+  - **离线**：上传含 `version.json` 的源码 `.zip` → `adm-zip` 解压比对版本，仅当比当前更新时覆盖应用（排除 `node_modules` / `server/instance` / `config.json` / `dist-exe` / `backups`）。
+  - 任何更新前自动备份到 `backups/<online|offline>-时间戳/`；应用后可自动重启（设置项开关，`startServer` 带 `EADDRINUSE` 重试）。
+- 路由：`/upgrade`（状态页）、`/settings`（git 配置）、`/api/upgrade/check`、`/api/upgrade/online`、`/api/upgrade/offline`（multer 接收 zip）。
 
 ## 8. 平台页面与导出
 
 - 路由：`/`（概览）、`/upload`、`/servers`、`/servers/<id>`、`/reports/<id>`、
-  `/history`、`/catalog`、`/download`（按四大类分组）、`/download/<name>`、`/license`（只读状态页）、
+  `/history`、`/catalog`、`/download`（按四大类分组）、`/download/<name>`、`/license`（卡密激活页）、`/upgrade`（升级页）、
   `/servers/<id>/delete`、`/export/<id>/{html,csv,excel}`、`/api/reports/<id>`、`/health`。
 - 导出实现（`export.js`）：
-  - **HTML**：内联 CSS 单文件（`exportHtml`）；
+  - **HTML**：内联 CSS 单文件，版式对齐「云探合规管理系统安全分析报告」（目录/概述/分类统计/内联 SVG 风险图表/不合规 TOP/失败列表），离线可直接打开（`exportHtml`）；
   - **CSV**：含 UTF-8 BOM（`exportCsv`），Excel 直接打开不乱码；
   - **Excel**：`exceljs` 生成 `.xlsx`，按分组多 sheet（`exportExcel`，异步）。
 - 存储：`node:sqlite`（Node 22 内置，零原生编译），建表 `servers/scans/findings/issued_licenses`，开启 WAL 与外键。
