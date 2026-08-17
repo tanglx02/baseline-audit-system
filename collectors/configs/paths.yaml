@@ -1,0 +1,126 @@
+# collectors/configs/paths.yaml
+# 配置文件路径映射：把「发行版/版本差异」从 item 逻辑里剥离。
+# item 里用 method.path_catalog 引用这里的键名；引擎按 platform 取候选路径，
+# 取第一个存在的文件。支持 $VAR / %VAR% 环境变量展开。
+
+mysql_conf:
+  linux:
+    - /etc/my.cnf
+    - /etc/mysql/my.cnf
+    - /usr/etc/my.cnf
+    - $MYSQL_HOME/my.cnf
+    - /var/lib/mysql/my.cnf
+  windows:
+    - C:\ProgramData\MySQL\MySQL Server 8.0\my.ini
+    - C:\ProgramData\MySQL\MySQL Server 5.7\my.ini
+    - C:\my.ini
+
+redis_conf:
+  linux:
+    - /etc/redis/redis.conf
+    - /etc/redis.conf
+    - $REDIS_HOME/redis.conf
+    - /usr/local/etc/redis.conf
+  windows:
+    - C:\Program Files\Redis\redis.windows.conf
+
+postgresql_conf:
+  linux:
+    - /var/lib/pgsql/data/postgresql.conf
+    - /etc/postgresql/postgresql.conf
+    - $PGDATA/postgresql.conf
+    - /usr/local/pgsql/data/postgresql.conf
+  windows:
+    - C:\Program Files\PostgreSQL\15\data\postgresql.conf
+
+pg_hba_conf:
+  linux:
+    - /var/lib/pgsql/data/pg_hba.conf
+    - /etc/postgresql/pg_hba.conf
+    - $PGDATA/pg_hba.conf
+  windows:
+    - C:\Program Files\PostgreSQL\15\data\pg_hba.conf
+
+mongodb_conf:
+  linux:
+    - /etc/mongod.conf
+    - $MONGO_HOME/mongod.conf
+    - /usr/local/etc/mongod.conf
+  windows:
+    - C:\Program Files\MongoDB\Server\6.0\bin\mongod.cfg
+
+nginx_conf:
+  linux:
+    - /etc/nginx/nginx.conf
+    - /usr/local/nginx/conf/nginx.conf
+    - $NGINX_HOME/conf/nginx.conf
+  windows:
+    - C:\nginx\conf\nginx.conf
+
+apache_conf:
+  linux:
+    - /etc/httpd/conf/httpd.conf
+    - /etc/apache2/apache2.conf
+    - /usr/local/apache2/conf/httpd.conf
+  windows:
+    - C:\Apache24\conf\httpd.conf
+
+sshd_config:
+  linux:
+    - /etc/ssh/sshd_config
+  windows:
+    - C:\ProgramData\ssh\sshd_config
+
+mariadb_conf:
+  linux:
+    - /etc/my.cnf
+    - /etc/mysql/my.cnf
+    - /etc/mysql/mariadb.conf.d/*.cnf
+    - $MARIADB_HOME/my.cnf
+  windows:
+    - C:\ProgramData\MariaDB\MariaDB 10.6\my.ini
+    - C:\my.ini
+
+oracle_listener_conf:
+  linux:
+    - $ORACLE_HOME/network/admin/listener.ora
+    - /u01/app/oracle/product/*/dbhome_1/network/admin/listener.ora
+  windows:
+    - C:\app\oracle\product\*\dbhome_1\network\admin\listener.ora
+    - '%ORACLE_HOME%\network\admin\listener.ora'
+
+oracle_sqlnet_conf:
+  linux:
+    - $ORACLE_HOME/network/admin/sqlnet.ora
+    - /u01/app/oracle/product/*/dbhome_1/network/admin/sqlnet.ora
+  windows:
+    - C:\app\oracle\product\*\dbhome_1\network\admin\sqlnet.ora
+    - '%ORACLE_HOME%\network\admin\sqlnet.ora'
+
+db2_dbm_conf:
+  linux:
+    - $DB2_HOME/sqllib/db2systm
+    - /home/db2inst1/sqllib/db2systm
+  windows:
+    - C:\Program Files\IBM\SQLLIB\db2systm
+
+docker_daemon_conf:
+  linux:
+    - /etc/docker/daemon.json
+    - $DOCKER_HOME/daemon.json
+  windows:
+    - C:\ProgramData\Docker\config\daemon.json
+
+k8s_apiserver_manifest:
+  linux:
+    - /etc/kubernetes/manifests/kube-apiserver.yaml
+    - /etc/origin/master/master-config.yaml
+  windows:
+    - C:\etc\kubernetes\manifests\kube-apiserver.yaml
+
+k8s_kubeconfig:
+  linux:
+    - /etc/kubernetes/admin.conf
+    - $HOME/.kube/config
+  windows:
+    - C:\Users\$USER\.kube\config

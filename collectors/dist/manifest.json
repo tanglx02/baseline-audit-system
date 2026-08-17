@@ -1,0 +1,173 @@
+{
+  "generated_at": "2026-08-17T07:42:09.881Z",
+  "scripts": [
+    {
+      "file": "collect_db2.sh",
+      "platform": "linux",
+      "catalog_id": "db2",
+      "label": "IBM DB2(Linux) 数据库安全基线（补全空白章节，参考 CIS IBM DB2 Benchmark）",
+      "category": "数据库",
+      "items": 12
+    },
+    {
+      "file": "collect_db_mariadb.sh",
+      "platform": "linux",
+      "catalog_id": "db_mariadb",
+      "label": "MariaDB(Linux) 数据库安全基线（补全空白章节，参考 MySQL 基线，基于 CIS MariaDB）",
+      "category": "数据库",
+      "items": 12
+    },
+    {
+      "file": "collect_db_mongodb.sh",
+      "platform": "linux",
+      "catalog_id": "db_mongodb",
+      "label": "MongoDB(Linux) 数据库安全基线（补全空白章节，基于 CIS MongoDB Benchmark）",
+      "category": "数据库",
+      "items": 10
+    },
+    {
+      "file": "collect_db_mysql_linux.sh",
+      "platform": "linux",
+      "catalog_id": "db_mysql_linux",
+      "label": "MySQL(Linux) 数据库安全基线（来自数据库安全核查项笔记）",
+      "category": "数据库",
+      "items": 12
+    },
+    {
+      "file": "collect_db_mysql_win.ps1",
+      "platform": "windows",
+      "catalog_id": "db_mysql_win",
+      "label": "MySQL(Windows) 数据库安全基线（补全空白章节，参考 MySQL Linux 基线适配 Windows my.ini 与注册表）",
+      "category": "数据库",
+      "items": 12
+    },
+    {
+      "file": "collect_db_oracle_linux.sh",
+      "platform": "linux",
+      "catalog_id": "db_oracle_linux",
+      "label": "Oracle(Linux) 数据库安全基线（来自数据库安全核查项笔记，共 28 项）",
+      "category": "数据库",
+      "items": 28
+    },
+    {
+      "file": "collect_db_oracle_win.ps1",
+      "platform": "windows",
+      "catalog_id": "db_oracle_win",
+      "label": "Oracle(Windows) 数据库安全基线（补全空白章节，参考 Oracle Linux 基线适配 Windows 路径）",
+      "category": "数据库",
+      "items": 16
+    },
+    {
+      "file": "collect_db_postgresql.sh",
+      "platform": "linux",
+      "catalog_id": "db_postgresql",
+      "label": "PostgreSQL(Linux) 数据库安全基线（补全空白章节，基于 CIS PostgreSQL Benchmark）",
+      "category": "数据库",
+      "items": 10
+    },
+    {
+      "file": "collect_db_redis.sh",
+      "platform": "linux",
+      "catalog_id": "db_redis",
+      "label": "Redis(Linux) 数据库安全基线（补全空白章节，基于 CIS Redis Benchmark）",
+      "category": "数据库",
+      "items": 8
+    },
+    {
+      "file": "collect_db_sqlserver_win.ps1",
+      "platform": "windows",
+      "catalog_id": "db_sqlserver_win",
+      "label": "SQL Server(Windows) 数据库安全基线（补全空白章节，参考 CIS SQL Server Benchmark）",
+      "category": "数据库",
+      "items": 16
+    },
+    {
+      "file": "collect_host_linux.sh",
+      "platform": "linux",
+      "catalog_id": "host_linux",
+      "label": "Linux 主机安全基线（来自主机安全核查项笔记）",
+      "category": "Linux主机",
+      "items": 22
+    },
+    {
+      "file": "collect_host_windows.ps1",
+      "platform": "windows",
+      "catalog_id": "host_windows",
+      "label": "Windows 主机安全基线（来自主机安全核查项笔记，共 43 项）",
+      "category": "Windows主机",
+      "items": 43
+    },
+    {
+      "file": "collect_infra_docker.sh",
+      "platform": "linux",
+      "catalog_id": "infra_docker",
+      "label": "Docker 容器安全基线（新增类别，基于 CIS Docker Benchmark）",
+      "category": "Linux主机",
+      "items": 14
+    },
+    {
+      "file": "collect_infra_k8s.sh",
+      "platform": "linux",
+      "catalog_id": "infra_k8s",
+      "label": "Kubernetes 容器编排安全基线（新增类别，基于 CIS Kubernetes Benchmark）",
+      "category": "Linux主机",
+      "items": 14
+    },
+    {
+      "file": "collect_infra_network.sh",
+      "platform": "linux",
+      "catalog_id": "infra_network",
+      "label": "网络设备安全基线（新增类别，覆盖交换机/路由器/防火墙/负载均衡，参考等保2.0 与 CIS 网络设备）",
+      "category": "Linux主机",
+      "items": 12
+    },
+    {
+      "file": "collect_infra_network.ps1",
+      "platform": "windows",
+      "catalog_id": "infra_network",
+      "label": "网络设备安全基线（新增类别，覆盖交换机/路由器/防火墙/负载均衡，参考等保2.0 与 CIS 网络设备）",
+      "category": "Windows主机",
+      "items": 12
+    },
+    {
+      "file": "collect_mw_apache.sh",
+      "platform": "linux",
+      "catalog_id": "mw_apache",
+      "label": "Apache(Linux) 中间件安全基线（来自中间件安全核查项笔记）",
+      "category": "中间件",
+      "items": 10
+    },
+    {
+      "file": "collect_mw_iis.ps1",
+      "platform": "windows",
+      "catalog_id": "mw_iis",
+      "label": "IIS(Windows) 中间件安全基线（来自中间件安全核查项笔记，共 18 项）",
+      "category": "中间件",
+      "items": 18
+    },
+    {
+      "file": "collect_mw_nginx.sh",
+      "platform": "linux",
+      "catalog_id": "mw_nginx",
+      "label": "Nginx(Linux) 中间件安全基线（来自中间件安全核查项笔记，去重后 4 项）",
+      "category": "中间件",
+      "items": 4
+    },
+    {
+      "file": "collect_mw_tomcat.sh",
+      "platform": "linux",
+      "catalog_id": "mw_tomcat",
+      "label": "Tomcat(Linux) 中间件安全基线（来自中间件安全核查项笔记）",
+      "category": "中间件",
+      "items": 12
+    },
+    {
+      "file": "collect_mw_weblogic.sh",
+      "platform": "linux",
+      "catalog_id": "mw_weblogic",
+      "label": "WebLogic(Linux) 中间件安全基线（来自中间件安全核查项笔记，共 12 项）",
+      "category": "中间件",
+      "items": 12
+    }
+  ]
+}

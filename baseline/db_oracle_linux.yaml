@@ -1,0 +1,394 @@
+catalog:
+  id: db_oracle_linux
+  platform: linux
+  version: "1.0.0"
+  description: "Oracle(Linux) 数据库安全基线（来自数据库安全核查项笔记，共 28 项）"
+  items:
+    - id: ORA-AUD-001
+      category: 数据库安全
+      subsystem: Oracle
+      name: 数据库审计策略(audit_trail)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "select value from v$parameter where name='audit_trail'; audit_trail 不为 NONE 则合规。需以 sysdba 执行 SQL 核查。"
+      remediation: "alter system set audit_trail='OS' scope=spfile; 重启数据库。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-PWD-002
+      category: 数据库安全
+      subsystem: Oracle
+      name: 口令生存期(PASSWORD_LIFE_TIME<=90)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "select limit from dba_profiles where resource_name='PASSWORD_LIFE_TIME'; 值<=90 合规。需 SQL 核查。"
+      remediation: "alter profile DEFAULT limit PASSWORD_LIFE_TIME 90;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-PRIV-003
+      category: 数据库安全
+      subsystem: Oracle
+      name: 管理对象权限(除默认用户外无DBA角色)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "select a.username from dba_users a left join dba_role_privs b on a.username=b.grantee where granted_role='DBA' and a.username not in ('SYS','SYSMAN','SYSTEM'); 无其它 DBA 用户则合规。"
+      remediation: "revoke dba from <username>;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-DICT-004
+      category: 数据库安全
+      subsystem: Oracle
+      name: 启用数据字典保护(O7_DICTIONARY_ACCESSIBILITY=false)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "O7_DICTIONARY_ACCESSIBILITY 应为 false。需 SQL/参数核查。"
+      remediation: "alter system set O7_DICTIONARY_ACCESSIBILITY=FALSE scope=spfile; 重启。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-PWD-005
+      category: 数据库安全
+      subsystem: Oracle
+      name: 最大认证失败次数(FAILED_LOGIN_ATTEMPTS<5)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "FAILED_LOGIN_ATTEMPTS 值<5(建议5)则合规。需 SQL 核查。"
+      remediation: "alter profile DEFAULT limit FAILED_LOGIN_ATTEMPTS 5;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-REM-006
+      category: 数据库安全
+      subsystem: Oracle
+      name: 限制SYSDBA远程登录(REMOTE_LOGIN_PASSWORDFILE=NONE)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "REMOTE_LOGIN_PASSWORDFILE 值为 NONE 则合规。需 SQL 核查。"
+      remediation: "alter system set REMOTE_LOGIN_PASSWORDFILE=NONE scope=spfile; 重启。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-PWD-007
+      category: 数据库安全
+      subsystem: Oracle
+      name: 记住历史密码次数(PASSWORD_REUSE_MAX>=5)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "PASSWORD_REUSE_MAX 值>=5 则合规。需 SQL 核查。"
+      remediation: "alter profile DEFAULT limit PASSWORD_REUSE_MAX 5;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-PWD-008
+      category: 数据库安全
+      subsystem: Oracle
+      name: 口令强度函数(verify_function)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "已配置口令验证函数(PASSWORD_VERIFY_FUNCTION)则合规。需 SQL 核查。"
+      remediation: "执行 utlpwdmg.sql 并 alter profile DEFAULT limit PASSWORD_VERIFY_FUNCTION verify_function;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-NET-009
+      category: 数据库安全
+      subsystem: Oracle
+      name: 限制可访问数据库地址(tcp.validnode_checking & invited_nodes)
+      severity: high
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: "grep -rIE 'tcp\\.validnode_checking|tcp\\.invited_nodes' --include=sqlnet.ora /u01/app/oracle /opt/oracle /oracle 2>/dev/null | head -5"
+      judge:
+        type: regex_present
+        value: '(?i)(?=.*validnode_checking\s*=\s*yes)(?=.*invited_nodes)'
+        treat_empty_as: fail
+      remediation: "在 $ORACLE_HOME/network/admin/sqlnet.ora 设置 tcp.validnode_checking=yes 与 tcp.invited_nodes=(信任IP)。"
+      reference: "等保2.0 8.1.4"
+      timeout: 20
+
+    - id: ORA-LST-010
+      category: 数据库安全
+      subsystem: Oracle
+      name: 监听器设置密码(PASSWORDS_LISTENER)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: "grep -rIE 'PASSWORDS_LISTENER' --include=listener.ora /u01/app/oracle /opt/oracle /oracle 2>/dev/null | head -3"
+      judge:
+        type: regex_present
+        value: '(?i)PASSWORDS_LISTENER'
+        treat_empty_as: fail
+      remediation: "在 listener.ora 设置 PASSWORDS_LISTENER 并为监听器配置密码。"
+      reference: "等保2.0 8.1.4"
+      timeout: 20
+
+    - id: ORA-PRIV-011
+      category: 数据库安全
+      subsystem: Oracle
+      name: 账户最小授权(回收PUBLIC危险包执行权)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "select table_name from dba_tab_privs where grantee='PUBLIC' and privilege='EXECUTE' and table_name in ('UTL_FILE','UTL_TCP','UTL_HTTP','UTL_SMTP','DBMS_LOB','DBMS_SYS_SQL','DBMS_JOB'); 无结果则合规。"
+      remediation: "revoke execute on <包> from public;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-PWD-012
+      category: 数据库安全
+      subsystem: Oracle
+      name: 修改默认账户密码(10g)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "10g: 检查 dba_users 中 password 哈希是否仍为默认哈希；无默认密码账号则合规。需 SQL 核查。"
+      remediation: "alter user <username> identified by <强密码>;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-PWD-013
+      category: 数据库安全
+      subsystem: Oracle
+      name: 修改默认账户密码(11g)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "11g: select count(*) from DBA_USERS_WITH_DEFPWD a,dba_users b where a.username=b.username and b.account_status='open'; 结果为0则合规(XS$NULL 除外)。"
+      remediation: "alter user <username> identified by <强密码>;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-PWD-014
+      category: 数据库安全
+      subsystem: Oracle
+      name: 口令到期宽限天数(PASSWORD_GRACE_TIME<=7)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "PASSWORD_GRACE_TIME 值<=7 则合规。需 SQL 核查。"
+      remediation: "alter profile DEFAULT limit PASSWORD_GRACE_TIME 7;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-AUTH-015
+      category: 数据库安全
+      subsystem: Oracle
+      name: 登录认证方式(REMOTE_OS_AUTHENT=false)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "REMOTE_OS_AUTHENT 值为 FALSE 则合规。需 SQL 核查。"
+      remediation: "alter system set REMOTE_OS_AUTHENT=FALSE scope=spfile; 重启。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-OS-016
+      category: 数据库安全
+      subsystem: Oracle
+      name: 禁止oracle作为主机管理员帐号(仅属dba/oinstall)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          id oracle 2>/dev/null | grep -oE 'groups=[0-9]+\(.+\)' || echo NOUSER
+      judge:
+        type: regex_present
+        value: '(?i)\(dba.*oinstall\)|\(oinstall.*dba\)'
+        treat_empty_as: fail
+      remediation: "将 oracle 用户仅加入 dba 与 oinstall 组，移出 wheel 等管理员组。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-PWD-017
+      category: 数据库安全
+      subsystem: Oracle
+      name: 认证失败账户锁定时间(PASSWORD_LOCK_TIME=1)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "PASSWORD_LOCK_TIME 值=1(天)则合规。需 SQL 核查。"
+      remediation: "alter profile DEFAULT limit PASSWORD_LOCK_TIME 1;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-AUD-018
+      category: 数据库安全
+      subsystem: Oracle
+      name: 日志记录及保存(DBA_AUDIT_TRAIL有记录)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "select * from DBA_AUDIT_TRAIL; 存在审计记录则合规。需 SQL 核查。"
+      remediation: "audit session; audit table; 开启相应审计。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-LST-019
+      category: 数据库安全
+      subsystem: Oracle
+      name: 开启监听器日志(LOGGING_LISTENER等)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: "grep -rIE 'LOGGING_LISTENER|LOG_FILE_LISTENER|LOG_DIRECTORY_LISTENER' --include=listener.ora /u01/app/oracle /opt/oracle /oracle 2>/dev/null | head -5"
+      judge:
+        type: regex_present
+        value: '(?i)(?=.*LOGGING_LISTENER)(?=.*LOG_FILE_LISTENER)(?=.*LOG_DIRECTORY_LISTENER)'
+        treat_empty_as: fail
+      remediation: "在 listener.ora 设置 LOGGING_LISTENER=ON、LOG_FILE_LISTENER、LOG_DIRECTORY_LISTENER。"
+      reference: "等保2.0 8.1.4"
+      timeout: 20
+
+    - id: ORA-LST-020
+      category: 数据库安全
+      subsystem: Oracle
+      name: 监听器连接超时(INBOUND_CONNECT_TIMEOUT=10)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: "grep -rIE 'INBOUND_CONNECT_TIMEOUT' --include=listener.ora --include=sqlnet.ora /u01/app/oracle /opt/oracle /oracle 2>/dev/null | head -5"
+      judge:
+        type: regex_present
+        value: '(?i)INBOUND_CONNECT_TIMEOUT\s*=\s*10'
+        treat_empty_as: fail
+      remediation: "listener.ora 与 sqlnet.ora 均设置 INBOUND_CONNECT_TIMEOUT=10。"
+      reference: "等保2.0 8.1.4"
+      timeout: 20
+
+    - id: ORA-LST-021
+      category: 数据库安全
+      subsystem: Oracle
+      name: 监听器管理限制(ADMIN_RESTRICTIONS=ON)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: "grep -rIE 'ADMIN_RESTRICTIONS_' --include=listener.ora /u01/app/oracle /opt/oracle /oracle 2>/dev/null | head -3"
+      judge:
+        type: regex_present
+        value: '(?i)ADMIN_RESTRICTIONS_\w+\s*=\s*ON'
+        treat_empty_as: fail
+      remediation: "在 listener.ora 设置 ADMIN_RESTRICTIONS_<listener_name>=ON。"
+      reference: "等保2.0 8.1.4"
+      timeout: 20
+
+    - id: ORA-ACC-022
+      category: 数据库安全
+      subsystem: Oracle
+      name: 删除或锁定无关帐号
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "select username from dba_users where account_status='OPEN'; 不存在与运行维护无关账号则合规。需人工核查。"
+      remediation: "alter user <username> account lock; 或 drop user <username> cascade;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-ACC-023
+      category: 数据库安全
+      subsystem: Oracle
+      name: 锁定/到期默认示例账号
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "核查 SCOTT/HR/OE/PM/SH 等示例账号是否已锁定或到期。需 SQL 核查。"
+      remediation: "锁定或删除示例账号。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-PRIV-024
+      category: 数据库安全
+      subsystem: Oracle
+      name: 限制用户并行会话数(SESSIONS_PER_USER)
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "select limit from dba_profiles where profile='DEFAULT' and resource_name='SESSIONS_PER_USER'; 不为 UNLIMITED 则合规。"
+      remediation: "alter profile DEFAULT limit SESSIONS_PER_USER 10;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-PRIV-025
+      category: 数据库安全
+      subsystem: Oracle
+      name: 限制会话CPU时间(CPU_PER_USER)
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "select limit from dba_profiles where profile='DEFAULT' and resource_name='CPU_PER_USER'; 已设置限制值则合规。"
+      remediation: "alter profile DEFAULT limit CPU_PER_USER 10000;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-PRIV-026
+      category: 数据库安全
+      subsystem: Oracle
+      name: 限制空闲会话时间(IDLE_TIME)
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "select limit from dba_profiles where profile='DEFAULT' and resource_name='IDLE_TIME'; 不为 UNLIMITED 则合规。"
+      remediation: "alter profile DEFAULT limit IDLE_TIME 30;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-CONN-027
+      category: 数据库安全
+      subsystem: Oracle
+      name: 限制数据库最大连接数(processes<=1000)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "select value from v$parameter where name='processes'; 值<=1000 则合规。"
+      remediation: "alter system set processes=500 scope=spfile;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORA-AUD-028
+      category: 数据库安全
+      subsystem: Oracle
+      name: 审计记录规范(audit_sys_operations等)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "show parameter audit_trail; show parameter audit_sys_operations; 并按业务配置 dba_stmt/priv/obj_audit_opts。需人工核查审计策略完整性。"
+      remediation: "设置 audit_trail=DB、audit_sys_operations=TRUE，并配置语句/权限/对象级审计。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10

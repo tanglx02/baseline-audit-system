@@ -1,0 +1,205 @@
+catalog:
+  id: db_mysql_win
+  platform: windows
+  version: "1.0.0"
+  description: "MySQL(Windows) 数据库安全基线（补全空白章节，参考 MySQL Linux 基线适配 Windows my.ini 与注册表）"
+  items:
+    - id: MYSQLW-LOG-001
+      category: 数据库安全
+      subsystem: MySQL
+      name: 配置日志功能
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          (Get-Content (Resolve-Path "C:\ProgramData\MySQL\MySQL Server 8.0\my.ini" -ErrorAction SilentlyContinue).Path -ErrorAction SilentlyContinue) -join "`n" | Select-String -Pattern "log_error|log_bin|general_log" | Where-Object { $_.Line -notmatch '^\s*#' } | ForEach-Object { $_.Line } | Out-String -Stream | Select-Object -First 5 | ForEach-Object { $_ }
+      judge:
+        type: regex_present
+        value: "(?=.*log_error)(?=.*log_bin|.*general_log)"
+        treat_empty_as: fail
+      remediation: "在 my.ini [mysqld] 增加 log_error、log_bin、general_log 并重启 MySQL 服务。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MYSQLW-ACCT-002
+      category: 数据库安全
+      subsystem: MySQL
+      name: 删除匿名/无关账号
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "SELECT count(*) FROM mysql.user WHERE user=''; 结果为 0 则合规。需连库确认。"
+      remediation: "DROP USER ''@'localhost'; DROP USER ''@'%';"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MYSQLW-ACCT-003
+      category: 数据库安全
+      subsystem: MySQL
+      name: 更改 root 用户名称
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "SELECT count(*) FROM mysql.user WHERE user='root'; 为 0 则合规。需连库确认。"
+      remediation: "RENAME USER 'root'@'localhost' TO '新用户名'@'localhost';"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MYSQLW-CONN-004
+      category: 数据库安全
+      subsystem: MySQL
+      name: 设置最大连接数
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          $f=(Resolve-Path "C:\ProgramData\MySQL\MySQL Server 8.0\my.ini" -ErrorAction SilentlyContinue).Path; if(-not $f){"FAIL"}else{$c=(Select-String -Path $f -Pattern 'max_connections\s*=' | ForEach-Object {($_.Line -replace '.*=\s*','').Trim()} | Select-Object -First 1); if($c -and [int]$c -le 1000){"OK"}else{"FAIL"}}
+      judge:
+        type: equals
+        value: "OK"
+        treat_empty_as: fail
+      remediation: "在 my.ini [mysqld] 设置 max_connections=1000。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MYSQLW-PWD-005
+      category: 数据库安全
+      subsystem: MySQL
+      name: 避免弱口令/空密码账号
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "SELECT * FROM mysql.user WHERE authentication_string='' OR authentication_string IS NULL; 无结果则合规。需连库确认。"
+      remediation: "为所有空密码/默认密码账号设置强口令：ALTER USER '<user>' IDENTIFIED BY '强口令';"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MYSQLW-SVC-006
+      category: 数据库安全
+      subsystem: MySQL
+      name: MySQL 服务以专用低权账户运行
+      severity: high
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: |-
+          (Get-WmiObject Win32_Service -Filter "Name LIKE 'MySQL%'" | Select-Object -First 1).StartName
+      judge:
+        type: regex_absent
+        value: "(?i)LocalSystem|NT AUTHORITY\\SYSTEM"
+        treat_empty_as: fail
+      remediation: "将 MySQL 服务启动账户改为专用低权本地/域账户。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MYSQLW-NET-007
+      category: 数据库安全
+      subsystem: MySQL
+      name: 修改默认端口(非3306)
+      severity: low
+      check_type: auto
+      method:
+        type: config_file
+        path_catalog: mysql_conf
+        format: ini
+        section: mysqld
+        key: port
+      judge:
+        type: not_equals
+        value: "3306"
+        treat_empty_as: fail
+      remediation: "在 my.ini [mysqld] 设置 port=<非3306> 并重启 MySQL 服务。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MYSQLW-FILE-008
+      category: 数据库安全
+      subsystem: MySQL
+      name: 数据目录权限(非 Everyone 可写)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "MySQL 数据目录应仅对 mysql 服务账户与管理员可访问，禁止 Everyone 可写。需人工核查 NTFS ACL。"
+      remediation: "通过 NTFS ACL 收紧数据目录权限。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MYSQLW-HIST-009
+      category: 数据库安全
+      subsystem: MySQL
+      name: 命令历史记录保护
+      severity: low
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: |-
+          $p="$env:USERPROFILE\.mysql_history"; if(Test-Path $p -PathType Container){"link"}elseif(Test-Path $p){"exists"}else{"none"}
+      judge:
+        type: regex_present
+        value: "link|none"
+        treat_empty_as: pass
+      remediation: "将 .mysql_history 重定向至 NUL 或受限位置。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MYSQLW-PWD-010
+      category: 数据库安全
+      subsystem: MySQL
+      name: 口令复杂度策略(validate_password)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          (Get-Content (Resolve-Path "C:\ProgramData\MySQL\MySQL Server 8.0\my.ini" -ErrorAction SilentlyContinue).Path -ErrorAction SilentlyContinue) -join "`n" | Select-String -Pattern "validate_password" | Where-Object { $_.Line -notmatch '^\s*#' } | ForEach-Object { $_.Line } | Out-String -Stream | Select-Object -First 3 | ForEach-Object { $_ }
+      judge:
+        type: regex_present
+        value: '(?i)validate_password.policy\s*[= ]\s*(1|MEDIUM|2|STRONG)'
+        treat_empty_as: fail
+      remediation: "在 my.ini 加载 validate_password 组件并设置 policy=MEDIUM。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MYSQLW-LOCAL-011
+      category: 数据库安全
+      subsystem: MySQL
+      name: 禁用 local_infile
+      severity: medium
+      check_type: auto
+      method:
+        type: config_file
+        path_catalog: mysql_conf
+        format: ini
+        section: mysqld
+        key: local_infile
+      judge:
+        type: equals
+        value: "0"
+        treat_empty_as: fail
+      remediation: "在 my.ini [mysqld] 设置 local_infile=0。"
+      reference: "CIS MySQL Benchmark"
+      timeout: 10
+
+    - id: MYSQLW-SKIP-012
+      category: 数据库安全
+      subsystem: MySQL
+      name: 禁用 skip-grant-tables
+      severity: high
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          (Get-Content (Resolve-Path "C:\ProgramData\MySQL\MySQL Server 8.0\my.ini" -ErrorAction SilentlyContinue).Path -ErrorAction SilentlyContinue) -join "`n" | Select-String -Pattern "skip-grant-tables" | Where-Object { $_.Line -notmatch '^\s*#' } | ForEach-Object { $_.Line } | Select-Object -First 1
+      judge:
+        type: regex_absent
+        value: "(?i)skip-grant-tables"
+        treat_empty_as: pass
+      remediation: "确保 my.ini 不存在 skip-grant-tables，否则任何人均可无密码登录。"
+      reference: "CIS MySQL Benchmark"
+      timeout: 10

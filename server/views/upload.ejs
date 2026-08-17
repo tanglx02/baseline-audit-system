@@ -1,0 +1,50 @@
+<%- include('_head', {title:'上传报告 - 安全基线核查系统'}) %>
+<%- include('_nav', {active:'upload'}) %>
+<main class="container">
+  <h1>上传基线报告</h1>
+
+  <div class="panel">
+    <h2>1. 在目标服务器执行采集脚本（零 Python 依赖）</h2>
+    <p class="muted">每个数据库 / 中间件类型都是独立脚本，按需选择。仅做只读检查，不改任何系统。</p>
+    <pre class="mono"># Linux（bash，无需 Python）
+bash collect_mysql_linux.sh -o /tmp
+bash collect_redis.sh -o /tmp
+bash collect_mw_nginx.sh -o /tmp
+
+# Windows（PowerShell，需 -ExecutionPolicy Bypass）
+powershell -ExecutionPolicy Bypass -File collect_mssql.ps1 -Out C:\tmp
+powershell -ExecutionPolicy Bypass -File collect_mw_iis.ps1 -Out C:\tmp</pre>
+    <p>脚本在 <a href="/download">下载脚本</a> 页面获取（每个类型单独一个文件）。</p>
+  </div>
+
+  <div class="panel">
+    <h2>2. 上传采集结果 JSON</h2>
+    <p class="muted">选择目标机生成的 <code>results_*.json</code> 文件上传。同一主机的多次/多类型上传会自动归并到同一份报告。</p>
+    <form id="upForm" class="form">
+      <input type="file" id="fileInput" accept=".json,application/json" required>
+      <button class="btn btn-primary" type="submit">上传并生成报告</button>
+    </form>
+    <div id="upOut" class="outbox"></div>
+    <p class="hint">也可直接 POST JSON：<code class="mono">curl -X POST http://127.0.0.1:5000/upload -H 'Content-Type: application/json' -d '{"json":"&lt;文件内容&gt;"}'</code></p>
+  </div>
+</main>
+<script>
+document.getElementById('upForm').addEventListener('submit', async function(e){
+  e.preventDefault();
+  var file=document.getElementById('fileInput').files[0];
+  if(!file){ alert('请选择 JSON 文件'); return; }
+  var text=await file.text();
+  var out=document.getElementById('upOut'); out.innerHTML='上传中…';
+  try{
+    var r=await fetch('/upload',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({json:text})});
+    var j=await r.json().catch(function(){ return null; });
+    if(j && j.ok){
+      out.innerHTML='<span class="badge ok">上传成功，正在跳转…</span>';
+      setTimeout(function(){ location.href='/servers/'+j.server_id; }, 600);
+    } else {
+      out.innerHTML='<span class="badge bad">失败：'+(j&&j.error?j.error:r.status)+'</span>';
+    }
+  }catch(err){ out.innerHTML='<span class="badge bad">错误：'+err.message+'</span>'; }
+});
+</script>
+<%- include('_foot') %>

@@ -1,0 +1,77 @@
+<%- include('_head', {title:'基线报告 - 安全基线核查系统'}) %>
+<%- include('_nav', {active:'servers'}) %>
+<main class="container">
+  <h1>基线核查报告</h1>
+  <div class="meta">
+    主机：<b><%= report.server.hostname %></b> ｜ 平台：<span class="badge-plat <%= report.server.platform %>"><%= report.server.platform %></span>
+    ｜ 系统：<%= report.server.os %> <%= report.server.os_version||'' %> <%= report.server.kernel||'' %>
+  </div>
+
+  <div class="toolbar">
+    <a class="btn btn-sm" href="/export/<%= report.server.id %>/html">导出 HTML</a>
+    <a class="btn btn-sm" href="/export/<%= report.server.id %>/excel">导出 Excel</a>
+    <a class="btn btn-sm" href="/export/<%= report.server.id %>/csv">导出 CSV</a>
+    <a class="btn btn-sm" href="/api/reports/<%= report.server.id %>">JSON API</a>
+  </div>
+
+  <% const t = report.totals;
+     const rate = t.compliance;
+     const lvl = rate==null?{text:'未知',color:'#8a94a6'}:(rate*100>=90?{text:'非常安全',color:'#1a7f37'}:(rate*100>=70?{text:'比较安全',color:'#2f6fed'}:(rate*100>=50?{text:'比较危险',color:'#e08a00'}:{text:'非常危险',color:'#c0341d'})));
+     function catOf(tt,p){ if(tt.startsWith('db_')||tt==='db2')return '数据库'; if(tt.startsWith('mw_'))return '中间件'; return p==='windows'?'Windows主机':'Linux主机'; }
+     const catMap = {};
+     report.groups.forEach(g=>{ const c=catOf(g.target_type,g.platform); if(!catMap[c])catMap[c]={name:c,devices:0,total:0,pass:0,fail:0,manual:0,unknown:0}; const x=catMap[c]; x.devices++; x.total+=g.counts.pass+g.counts.fail+g.counts.manual+g.counts.unknown; x.pass+=g.counts.pass; x.fail+=g.counts.fail; x.manual+=g.counts.manual; x.unknown+=g.counts.unknown; });
+  %>
+
+  <div class="report-item-title"><span>1.概述信息</span></div>
+  <table class="datagrid">
+    <tr><td style="width:20%">风险等级</td><td style="width:80%"><div class="level-block"><span class="dot" style="background:<%= lvl.color %>"></span><span style="color:<%= lvl.color %>;font-weight:600"><%= lvl.text %></span></div></td></tr>
+    <tr><td>任务名称</td><td><%= report.server.hostname %></td></tr>
+    <tr><td>检查设备数</td><td>1</td></tr>
+    <tr><td>合规率</td><td><b style="color:<%= lvl.color %>"><%= rate==null?'—':(rate*100).toFixed(1)+'%' %></b></td></tr>
+    <tr><td>检查项情况</td><td>总数 <%= t.total %> ｜ 合规 <%= t.pass %> ｜ 不合规 <%= t.fail %> ｜ 待人工 <%= t.manual %> ｜ 未知 <%= t.unknown %></td></tr>
+  </table>
+
+  <div class="report-item-title"><span>2.设备分类统计</span></div>
+  <table class="datagrid">
+    <thead><tr><td style="width:16%">类型</td><td>设备数</td><td>检查总数</td><td>合规数</td><td>不合规数</td><td>人工确认数</td><td>失败数</td></tr></thead>
+    <tbody>
+      <% Object.values(catMap).forEach(c=>{ %><tr style="text-align:center"><td><%= c.name %></td><td>1</td><td><%= c.total %></td><td><%= c.pass %></td><td><%= c.fail %></td><td><%= c.manual %></td><td><%= c.unknown %></td></tr><% }); %>
+    </tbody>
+  </table>
+
+  <% report.groups.forEach(function(g){ %>
+    <div class="report-item-title"><span><%= g.target_label %> <small style="font-weight:400">(<%= g.target_type %> · <%= g.platform %>)</small></span></div>
+    <table class="datagrid">
+      <thead><tr><th>编号</th><th>级别</th><th>核查项</th><th>状态</th><th>实测值</th><th>期望</th><th>说明</th><th>加固建议</th></tr></thead>
+      <tbody>
+      <% g.items.forEach(function(f){ %>
+        <tr>
+          <td class="mono"><%= f.item_id %></td>
+          <td class="sev-<%= f.severity %>"><%= f.severity %></td>
+          <td><%= f.name %></td>
+          <td><span class="badge <%= f.status %>"><%= f.status %></span></td>
+          <td><pre class="mono"><%= f.actual==null?'':f.actual %></pre></td>
+          <td><%= f.expected||'' %></td>
+          <td><%= f.message||'' %></td>
+          <td><%= f.remediation||'' %></td>
+        </tr>
+      <% }); %>
+      </tbody>
+    </table>
+  <% }); %>
+
+  <div class="report-item-title"><span>扫描记录</span></div>
+  <table class="datagrid">
+    <thead><tr><th>类型</th><th>时间</th><th>合规/不合规/人工/未知</th></tr></thead>
+    <tbody>
+    <% report.scans.forEach(function(sc){ var s=JSON.parse(sc.summary||'{}'); %>
+      <tr>
+        <td><a href="/reports/<%= sc.id %>"><%= sc.target_type %></a></td>
+        <td><%= sc.created_at?sc.created_at.replace('T',' ').slice(0,19):'' %></td>
+        <td><%= (s.passed||0) %> / <%= (s.failed||0) %> / <%= (s.manual||0) %> / <%= (s.unknown||0) %></td>
+      </tr>
+    <% }); %>
+    </tbody>
+  </table>
+</main>
+<%- include('_foot') %>

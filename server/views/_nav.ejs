@@ -1,0 +1,22 @@
+<% const lic = licenseStatus(); %>
+<header class="topbar">
+  <div class="brand">安全基线核查系统 <span class="ver">v2.0</span></div>
+  <nav class="nav">
+    <a href="/" class="<%= active==='dashboard'?'cur':'' %>">概览</a>
+    <a href="/upload" class="<%= active==='upload'?'cur':'' %>">上传报告</a>
+    <a href="/servers" class="<%= active==='servers'?'cur':'' %>">服务器</a>
+    <a href="/history" class="<%= active==='history'?'cur':'' %>">历史</a>
+    <a href="/catalog" class="<%= active==='catalog'?'cur':'' %>">基线目录</a>
+    <a href="/download" class="<%= active==='download'?'cur':'' %>">下载脚本</a>
+    <a href="/license" class="<%= active==='license'?'cur':'' %>">授权</a>
+    <a href="/upgrade" class="<%= active==='upgrade'?'cur':'' %>">升级</a>
+  </nav>
+  <% if (!lic.valid) { %>
+  <a href="/license" class="lic-badge lic-bad">未授权</a>
+  <% } else { %>
+  <span class="lic-badge lic-ok">已授权</span>
+  <% } %>
+</header>
+<% if (!lic.valid) { %>
+<div class="banner">⚠ 系统未授权（<%= lic.reason %>）。除「授权 / 基线目录 / 下载脚本」外功能已锁定，请到 <a href="/license">授权后台</a> 激活许可证。</div>
+<% } %>

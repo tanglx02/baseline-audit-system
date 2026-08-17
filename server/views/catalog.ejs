@@ -1,0 +1,23 @@
+<%- include('_head', {title:'基线目录 - 安全基线核查系统'}) %>
+<%- include('_nav', {active:'catalog'}) %>
+<main class="container">
+  <h1>基线目录</h1>
+  <p class="muted">以下为系统内置的基线核查项（单一事实来源：<code>baseline/*.yaml</code>）。新增/修改基线只需编辑 YAML 后重新生成采集脚本。</p>
+  <div class="grid-cards">
+  <% catalogs.forEach(function(c){ %>
+    <div class="panel">
+      <h3><%= c.description %> <span class="badge-plat <%= c.platform %>"><%= c.platform %></span></h3>
+      <p class="muted mono"><%= c.id %> · v<%= c.version %> · <%= c.file %></p>
+      <div class="mini-stats">
+        <span><b><%= c.item_count %></b> 项</span>
+      </div>
+      <div class="cats">
+        <% Object.keys(c.categories).forEach(function(k){ %>
+          <span class="chip"><%= k %>: <%= c.categories[k] %></span>
+        <% }); %>
+      </div>
+    </div>
+  <% }); %>
+  </div>
+</main>
+<%- include('_foot') %>

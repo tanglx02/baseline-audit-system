@@ -1,0 +1,396 @@
+catalog:
+  id: host_linux
+  platform: linux
+  version: "1.0.0"
+  description: "Linux 主机安全基线（来自主机安全核查项笔记）"
+  items:
+    - id: LIN-PAM-001
+      category: 主机安全
+      subsystem: 口令策略
+      name: 检查口令锁定策略
+      severity: high
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -rihE "pam_tally2?\.so" /etc/pam.d/ 2>/dev/null | grep -oE "deny=[0-9]+|unlock_time=[0-9]+" | tr '\n' ' '
+      judge:
+        type: regex_present
+        value: "(?=.*deny=[0-5])(?=.*unlock_time=)"
+        treat_empty_as: fail
+      remediation: "在 /etc/pam.d/system-auth 增加 auth required pam_tally2.so deny=5 onerr=fail no_magic_root unlock_time=180 与 account required pam_tally2.so"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: LIN-AUTH-002
+      category: 主机安全
+      subsystem: 会话超时
+      name: 登陆超时时间设置(TMOUT)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -i "TMOUT" /etc/profile 2>/dev/null | tail -1
+      judge:
+        type: regex_present
+        value: '(?i)TMOUT\s*=\s*600'
+        treat_empty_as: fail
+      remediation: "在 /etc/profile 增加 TMOUT=600 与 export TMOUT"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: LIN-SSH-003
+      category: 主机安全
+      subsystem: SSH
+      name: 限制 root 用户 SSH 远程登录且使用协议2
+      severity: high
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -vE "^[[:space:]]*#" /etc/ssh/sshd_config 2>/dev/null | grep -iE "PermitRootLogin|Protocol" | tr '\n' ' '
+      judge:
+        type: regex_present
+        value: '(?=.*PermitRootLogin\s+no)(?=.*Protocol\s+2|.*Protocol\s+[0-9])'
+        treat_empty_as: fail
+      remediation: "设置 PermitRootLogin no 与 Protocol 2 并重启 sshd"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: LIN-SSH-004
+      category: 主机安全
+      subsystem: 远程维护
+      name: 使用 SSH 协议进行远程维护（禁用 Telnet）
+      severity: high
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          t=$(systemctl is-enabled telnet.socket 2>/dev/null; systemctl is-enabled telnet 2>/dev/null; chkconfig --list 2>/dev/null | grep -i telnet); s=$(systemctl is-enabled sshd 2>/dev/null || systemctl is-enabled ssh 2>/dev/null || echo na); if echo "$t" | grep -qiE "enabled|on"; then echo "telnet=enabled ssh=$s"; else echo "telnet=disabled ssh=$s"; fi
+      judge:
+        type: regex_present
+        value: "(?=.*telnet=disabled)(?=.*ssh=(enabled|na))"
+        treat_empty_as: fail
+      remediation: "关闭 Telnet 服务，启用并仅使用 SSH 进行远程维护"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: LIN-FILE-005
+      category: 主机安全
+      subsystem: 文件权限
+      name: 文件与目录缺省权限控制(umask)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -i "umask" /etc/profile 2>/dev/null | tail -1
+      judge:
+        type: regex_present
+        value: '(?i)umask\s+0?22'
+        treat_empty_as: fail
+      remediation: "在 /etc/profile 末尾增加 umask 022 并执行 source /etc/profile"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: LIN-ACCT-006
+      category: 主机安全
+      subsystem: 账号文件
+      name: 账号文件权限设置
+      severity: high
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          p=$(stat -c '%a' /etc/passwd 2>/dev/null); s=$(stat -c '%a' /etc/shadow 2>/dev/null); g=$(stat -c '%a' /etc/group 2>/dev/null); c=$(stat -c '%a' /etc/crontab 2>/dev/null); r=$(stat -c '%a' /etc/rsyslog.conf 2>/dev/null); [ -z "$r" ] && r=$(stat -c '%a' /etc/syslog.conf 2>/dev/null); if [ "$p" -le 644 ] && [ "$s" -le 400 ] && [ "$g" -le 644 ] && [ "$c" -le 644 ] && { [ -z "$r" ] || [ "$r" -le 644 ]; }; then echo OK; else echo FAIL; fi
+      judge:
+        type: equals
+        value: "OK"
+        treat_empty_as: fail
+      remediation: "chmod 644 /etc/passwd /etc/group /etc/crontab; chmod 400 /etc/shadow; 日志配置文件 chmod 644"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: LIN-PWD-007
+      category: 主机安全
+      subsystem: 口令策略
+      name: 口令生存期(login.defs)
+      severity: high
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          m=$(grep -i '^PASS_MAX_DAYS' /etc/login.defs 2>/dev/null | awk '{print $2}'); n=$(grep -i '^PASS_MIN_DAYS' /etc/login.defs 2>/dev/null | awk '{print $2}'); w=$(grep -i '^PASS_WARN_AGE' /etc/login.defs 2>/dev/null | awk '{print $2}'); l=$(grep -i '^PASS_MIN_LEN' /etc/login.defs 2>/dev/null | awk '{print $2}'); if [ -n "$m" ] && [ "$m" -le 180 ] && [ -n "$n" ] && [ "$n" -ge 1 ] && [ -n "$w" ] && [ "$w" -ge 28 ] && [ -n "$l" ] && [ "$l" -ge 8 ]; then echo OK; else echo FAIL; fi
+      judge:
+        type: equals
+        value: "OK"
+        treat_empty_as: fail
+      remediation: "在 /etc/login.defs 设置 PASS_MAX_DAYS 180 / PASS_MIN_DAYS 1 / PASS_WARN_AGE 28 / PASS_MIN_LEN 8"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: LIN-ACCT-008
+      category: 主机安全
+      subsystem: 账号管理
+      name: 禁止 UID 相同的用户存在多个
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          awk -F: '{print $3}' /etc/passwd 2>/dev/null | sort | uniq -d | wc -l
+      judge:
+        type: equals
+        value: "0"
+        treat_empty_as: fail
+      remediation: "删除重复 UID 的账号（切勿删除 root），userdel <username>"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: LIN-PWD-009
+      category: 主机安全
+      subsystem: 口令策略
+      name: 口令复杂度(pam_cracklib/pwquality)
+      severity: high
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -rihE "pam_cracklib|pam_pwquality" /etc/pam.d/ 2>/dev/null | grep -oE "minlen=[0-9]+|[dluo]credit=[0-9-]+" | tr '\n' ' '
+      judge:
+        type: regex_present
+        value: "(?=.*minlen=(8|9|[0-9]{2,}))(?=.*credit)"
+        treat_empty_as: fail
+      remediation: "在 /etc/pam.d/system-auth 的 password requisite 行增加 pam_cracklib.so minlen=8 dcredit=-4 ucredit=-2 lcredit=-1 ocredit=-1"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: LIN-ENV-010
+      category: 主机安全
+      subsystem: 环境变量
+      name: root 用户环境变量安全性(PATH 不含.或..)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          echo "$PATH" | tr ':' '\n' | grep -xE '^\.$|^\.\.$' | wc -l
+      judge:
+        type: equals
+        value: "0"
+        treat_empty_as: fail
+      remediation: "修改 /etc/profile 或 /root/.bash_profile，删除 PATH 中的 . 与 .. 路径"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: LIN-LOG-011
+      category: 主机安全
+      subsystem: 日志
+      name: 启用远程日志功能并配置记录内容
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -hE "@" /etc/rsyslog.conf /etc/syslog.conf 2>/dev/null | grep -vE '^#' | head -3 | tr '\n' ' '
+      judge:
+        type: regex_present
+        value: "@"
+        treat_empty_as: fail
+      remediation: "在 /etc/rsyslog.conf 增加 *.* @<loghost> 并重启 rsyslog"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: LIN-ACCT-012
+      category: 主机安全
+      subsystem: 账号管理
+      name: 删除或锁定无关帐号
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          users="daemon bin sys adm uucp nuucp lpd imnadm ipsec ldap nobody lp snapp invscount"; bad=0; for u in $users; do p=$(getent shadow "$u" 2>/dev/null | awk -F: '{print $2}'); s=$(getent passwd "$u" 2>/dev/null | awk -F: '{print $7}'); if [ -n "$p" ] && [ "$p" != "*" ] && [ "$p" != "!" ] && [ "${p:0:2}" != "!!" ] && [ "$s" != "/bin/false" ] && [ "$s" != "/usr/sbin/nologin" ]; then bad=1; fi; done; [ "$bad" -eq 0 ] && echo OK || echo FAIL
+      judge:
+        type: equals
+        value: "OK"
+        treat_empty_as: fail
+      remediation: "对无关系统账号执行 usermod -s /bin/false <user> 或 userdel / passwd -l 锁定"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: LIN-NET-013
+      category: 主机安全
+      subsystem: 访问控制
+      name: 主机访问控制 IP 限制(hosts.allow/deny)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          a=$(grep -vE '^#|^$' /etc/hosts.allow 2>/dev/null | head -1); d=$(grep -vE '^#|^$' /etc/hosts.deny 2>/dev/null | grep -iE "all" | head -1); if [ -n "$a" ] && [ -n "$d" ]; then echo OK; else echo FAIL; fi
+      judge:
+        type: equals
+        value: "OK"
+        treat_empty_as: fail
+      remediation: "在 /etc/hosts.allow 设置允许访问的 IP；在 /etc/hosts.deny 设置 ALL:ALL 拒绝全部"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: LIN-ACCT-014
+      category: 主机安全
+      subsystem: 账号管理
+      name: 禁止存在空密码的帐户
+      severity: high
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          awk -F: '($2==""){c++} END{print c+0}' /etc/shadow 2>/dev/null
+      judge:
+        type: equals
+        value: "0"
+        treat_empty_as: fail
+      remediation: "为所有空密码账号设置满足复杂度的口令：passwd <username>"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: LIN-LOG-015
+      category: 主机安全
+      subsystem: 日志
+      name: 记录帐户登录日志(authpriv)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -hE "authpriv" /etc/rsyslog.conf /etc/syslog.conf /etc/syslog-ng/syslog-ng.conf 2>/dev/null | grep -vE '^#' | head -2 | tr '\n' ' '
+      judge:
+        type: regex_present
+        value: "authpriv"
+        treat_empty_as: fail
+      remediation: "在 /etc/rsyslog.conf 增加 authpriv.* /var/log/authlog 并重启 rsyslog"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: LIN-FTP-016
+      category: 主机安全
+      subsystem: FTP
+      name: 禁止 root 用户登录 FTP
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          u=$(grep -iE "root" /etc/vsftpd/ftpusers /etc/ftpusers /etc/vsftpd.user_list 2>/dev/null | head -1); if [ -n "$u" ]; then echo OK; else echo FAIL; fi
+      judge:
+        type: equals
+        value: "OK"
+        treat_empty_as: fail
+      remediation: "在 vsftpd 的 ftpusers/user_list 中加入 root 等特权账号禁止其 FTP 登录；未安装 FTP 则视为合规"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: LIN-ENV-017
+      category: 主机安全
+      subsystem: 历史命令
+      name: 历史命令设置(HISTFILESIZE/HISTSIZE)
+      severity: low
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          hf=$(grep -i '^HISTFILESIZE' /etc/profile 2>/dev/null | awk -F= '{print $2}' | tr -d ' ' | tail -1); hs=$(grep -i '^HISTSIZE' /etc/profile 2>/dev/null | awk -F= '{print $2}' | tr -d ' ' | tail -1); if [ -n "$hf" ] && [ "$hf" -le 5 ] && [ -n "$hs" ] && [ "$hs" -le 5 ]; then echo OK; else echo FAIL; fi
+      judge:
+        type: equals
+        value: "OK"
+        treat_empty_as: fail
+      remediation: "在 /etc/profile 设置 HISTFILESIZE=5 与 HISTSIZE=5"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: LIN-AUTH-018
+      category: 主机安全
+      subsystem: 登录控制
+      name: 限制 root 用户登录系统(securetty 不含 pts)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -cE '^pts' /etc/securetty 2>/dev/null || echo 0
+      judge:
+        type: equals
+        value: "0"
+        treat_empty_as: fail
+      remediation: "在 /etc/securetty 仅保留控制台 tty，删除 pts 等远程终端条目"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: LIN-SVC-019
+      category: 主机安全
+      subsystem: 服务
+      name: 禁用不必要的系统服务
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          bad=0; for s in telnet.socket ftp.service sendmail.service klogin kshell ntalk tftp imap pop3; do e=$(systemctl is-enabled "$s" 2>/dev/null); if [ "$e" = "enabled" ]; then bad=1; fi; done; [ "$bad" -eq 0 ] && echo OK || echo FAIL
+      judge:
+        type: equals
+        value: "OK"
+        treat_empty_as: fail
+      remediation: "关闭并禁用 telnet/ftp/sendmail/klogin/kshell/ntalk/tftp/imap/pop3 等非必要服务"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: LIN-SYS-020
+      category: 主机安全
+      subsystem: 系统加固
+      name: 操作系统遵循最小安装原则
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "审查 rpm -qa / dpkg -l 输出，卸载业务不需要的组件与服务，保持最小安装。"
+      remediation: "卸载非必要软件包，如 rpm -e <pkg>"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: LIN-SYS-021
+      category: 主机安全
+      subsystem: 强制访问控制
+      name: 开启 SELinux(可选)
+      severity: low
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          getenforce 2>/dev/null || echo "na"
+      judge:
+        type: regex_present
+        value: "(?i)enforcing|permissive"
+        treat_empty_as: fail
+      remediation: "修改 /etc/selinux/config 设置 SELINUX=enforcing 并重启"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: LIN-SYS-022
+      category: 主机安全
+      subsystem: 防病毒
+      name: 防病毒管理-Linux(可选)
+      severity: low
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          ps -ef 2>/dev/null | grep -iE "qaxsafed|clamd|savd|symantec" | grep -v grep | head -1
+      judge:
+        type: regex_present
+        value: "[a-zA-Z]"
+        treat_empty_as: fail
+      remediation: "安装并运行必要的防病毒软件（如 ClamAV），及时更新病毒库"
+      reference: "等保2.0 8.1.4"
+      timeout: 10

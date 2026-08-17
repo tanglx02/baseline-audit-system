@@ -1,0 +1,36 @@
+<%- include('_head', {title:'概览 - 安全基线核查系统'}) %>
+<%- include('_nav', {active:'dashboard'}) %>
+<main class="container">
+  <h1>概览</h1>
+  <div class="cards">
+    <div class="card"><div class="n"><%= stats.servers %></div><div class="l">服务器</div></div>
+    <div class="card"><div class="n"><%= stats.scans %></div><div class="l">扫描次数</div></div>
+    <div class="card"><div class="n"><%= stats.findings.total %></div><div class="l">核查项</div></div>
+    <div class="card"><div class="n" style="color:#1a7f37"><%= stats.findings.pass %></div><div class="l">合规</div></div>
+    <div class="card"><div class="n" style="color:#c0341d"><%= stats.findings.fail %></div><div class="l">不合规</div></div>
+    <div class="card"><div class="n" style="color:#9a6700"><%= stats.findings.manual %></div><div class="l">待人工</div></div>
+    <div class="card"><div class="n"><%= stats.compliance==null?'—':(stats.compliance*100).toFixed(1)+'%' %></div><div class="l">总体合规率</div></div>
+  </div>
+
+  <h2>已接入服务器</h2>
+  <% if (servers.length === 0) { %>
+    <p class="muted">尚未上传任何基线报告。<a href="/upload">上传一份采集结果</a> 或 <a href="/download">下载采集脚本</a>。</p>
+  <% } else { %>
+    <table>
+      <thead><tr><th>主机名</th><th>平台</th><th>系统</th><th>扫描数</th><th>最近扫描</th><th></th></tr></thead>
+      <tbody>
+      <% servers.forEach(function(s){ %>
+        <tr>
+          <td><b><%= s.hostname %></b></td>
+          <td><span class="badge-plat <%= s.platform %>"><%= s.platform %></span></td>
+          <td><%= s.os %> <%= s.os_version||'' %></td>
+          <td><%= s.scan_count %></td>
+          <td><%= s.last_scan?s.last_scan.replace('T',' ').slice(0,19):'—' %></td>
+          <td><a class="btn btn-sm" href="/servers/<%= s.id %>">查看报告</a></td>
+        </tr>
+      <% }); %>
+      </tbody>
+    </table>
+  <% } %>
+</main>
+<%- include('_foot') %>

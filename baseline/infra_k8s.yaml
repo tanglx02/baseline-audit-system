@@ -1,0 +1,217 @@
+catalog:
+  id: infra_k8s
+  platform: linux
+  version: "1.0.0"
+  description: "Kubernetes 容器编排安全基线（新增类别，基于 CIS Kubernetes Benchmark）"
+  items:
+    - id: K8S-API-001
+      category: 容器安全
+      subsystem: Kubernetes
+      name: API Server 禁用不安全端口(insecure-port=0)
+      severity: high
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -riE "insecure-port|insecurePort" /etc/kubernetes/manifests/kube-apiserver.yaml /etc/origin/master/master-config.yaml 2>/dev/null | grep -vE '^#' | head -1 || echo "none"
+      judge:
+        type: regex_absent
+        value: '(?i)insecure-port\s*[:=]\s*[1-9]'
+        treat_empty_as: pass
+      remediation: "kube-apiserver 设置 --insecure-port=0，仅通过 6443 安全端口。"
+      reference: "CIS Kubernetes 1.2.16"
+      timeout: 10
+
+    - id: K8S-API-002
+      category: 容器安全
+      subsystem: Kubernetes
+      name: 禁用匿名认证(anonymous-auth=false)
+      severity: high
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -riE "anonymous-auth" /etc/kubernetes/manifests/kube-apiserver.yaml 2>/dev/null | grep -vE '^#' | head -1 || echo "none"
+      judge:
+        type: regex_present
+        value: '(?i)anonymous-auth\s*[:=]\s*false'
+        treat_empty_as: fail
+      remediation: "kube-apiserver 增加 --anonymous-auth=false。"
+      reference: "CIS Kubernetes 1.2.1"
+      timeout: 10
+
+    - id: K8S-API-003
+      category: 容器安全
+      subsystem: Kubernetes
+      name: 启用 NodeRestriction 准入
+      severity: high
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -riE "enable-admission-plugins" /etc/kubernetes/manifests/kube-apiserver.yaml 2>/dev/null | grep -vE '^#' | head -1 || echo "none"
+      judge:
+        type: regex_present
+        value: "NodeRestriction"
+        treat_empty_as: fail
+      remediation: "kube-apiserver --enable-admission-plugins 包含 NodeRestriction。"
+      reference: "CIS Kubernetes 1.2.14"
+      timeout: 10
+
+    - id: K8S-RBAC-004
+      category: 容器安全
+      subsystem: Kubernetes
+      name: 启用 RBAC 授权模式
+      severity: high
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -riE "authorization-mode" /etc/kubernetes/manifests/kube-apiserver.yaml 2>/dev/null | grep -vE '^#' | head -1 || echo "none"
+      judge:
+        type: regex_present
+        value: "RBAC"
+        treat_empty_as: fail
+      remediation: "kube-apiserver --authorization-mode=Node,RBAC，禁用 AlwaysAllow。"
+      reference: "CIS Kubernetes 1.2.2"
+      timeout: 10
+
+    - id: K8S-ETCD-005
+      category: 容器安全
+      subsystem: Kubernetes
+      name: etcd 加密静态数据(EncryptionConfiguration)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "kube-apiserver 应配置 --encryption-provider-config 指向 EncryptionConfiguration，对 Secret 加密。需人工核查配置。"
+      remediation: "创建 EncryptionConfiguration(aescbc/secretbox)并 --encryption-provider-config 引用。"
+      reference: "CIS Kubernetes 1.2.33"
+      timeout: 10
+
+    - id: K8S-TLS-006
+      category: 容器安全
+      subsystem: Kubernetes
+      name: 组件间启用 TLS 与证书认证
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "kube-apiserver/kubelet/etcd 之间均应配置 TLS 证书(--tls-cert-file/--client-ca-file)。需人工核查证书配置。"
+      remediation: "为各组件签发并配置 TLS 证书，禁用明文通信。"
+      reference: "CIS Kubernetes 1.2.x"
+      timeout: 10
+
+    - id: K8S-PSP-007
+      category: 容器安全
+      subsystem: Kubernetes
+      name: 启用 Pod 安全标准(PodSecurity)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "应启用 Pod Security Admission(pod-security.kubernetes.io/enforce=baseline/restricted)。需人工核查命名空间标签与策略。"
+      remediation: "为命名空间打 pod-security 标签，限制特权 Pod。"
+      reference: "CIS Kubernetes 1.2.23"
+      timeout: 10
+
+    - id: K8S-NETPOL-008
+      category: 容器安全
+      subsystem: Kubernetes
+      name: 配置网络策略(NetworkPolicy)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "应默认拒绝跨命名空间/Pod 流量，按需放行。需人工核查是否部署 CNI 网络策略。"
+      remediation: "安装支持 NetworkPolicy 的 CNI(Calico/Cilium)并下发默认拒绝策略。"
+      reference: "CIS Kubernetes 5.x"
+      timeout: 10
+
+    - id: K8S-KUBELET-009
+      category: 容器安全
+      subsystem: Kubernetes
+      name: kubelet 禁用匿名并校验客户端
+      severity: high
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -riE "anonymous-auth|authentication-token-webhook" /var/lib/kubelet/config.yaml 2>/dev/null | grep -vE '^#' | head -2 | tr '\n' ' '
+      judge:
+        type: regex_present
+        value: 'anonymousAuth:\s*false'
+        treat_empty_as: fail
+      remediation: "kubelet 配置 anonymousAuth: false 且 authentication: webhook/x509。"
+      reference: "CIS Kubernetes 4.2.1"
+      timeout: 10
+
+    - id: K8S-SECRET-010
+      category: 容器安全
+      subsystem: Kubernetes
+      name: 避免将 Secret 挂载为环境变量(优先 volume)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "Secret 应作为 volume 挂载而非 env，降低泄露面；镜像中不得硬编码凭据。需人工核查工作负载清单。"
+      remediation: "将 Secret 改为 volume 挂载方式引用。"
+      reference: "CIS Kubernetes 5.4"
+      timeout: 10
+
+    - id: K8S-PRIV-011
+      category: 容器安全
+      subsystem: Kubernetes
+      name: 禁止特权容器与 hostPath 滥用
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "工作负载 securityContext 应设 privileged:false、readOnlyRootFilesystem:true、runAsNonRoot:true、drop ALL capabilities。需人工核查。"
+      remediation: "为容器配置受限 securityContext。"
+      reference: "CIS Kubernetes 5.2"
+      timeout: 10
+
+    - id: K8S-AUDIT-012
+      category: 容器安全
+      subsystem: Kubernetes
+      name: 启用 API Server 审计日志
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "kube-apiserver 应配置 --audit-policy-file 与 --audit-log-path，审计关键操作。需人工核查。"
+      remediation: "配置 audit-policy 并启用审计日志后接入集中日志。"
+      reference: "CIS Kubernetes 1.2.22"
+      timeout: 10
+
+    - id: K8S-DASH-013
+      category: 容器安全
+      subsystem: Kubernetes
+      name: 限制/禁用 Dashboard 匿名访问
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "Dashboard 应启用认证/鉴权且禁止跳过登录(skipLogin=false)，不应以 admin 令牌暴露。需人工核查。"
+      remediation: "为 Dashboard 配置 OIDC/RBAC 并移除跳过登录配置。"
+      reference: "CIS Kubernetes 5.7"
+      timeout: 10
+
+    - id: K8S-VER-014
+      category: 容器安全
+      subsystem: Kubernetes
+      name: 升级至修复已知漏洞的版本
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          kubectl version --short 2>/dev/null | grep -i server | head -1 || echo "unknown"
+      judge:
+        type: regex_present
+        value: "v[0-9]+\\.[0-9]+"
+        treat_empty_as: fail
+      remediation: "及时升级 Kubernetes 控制面与节点至安全版本。"
+      reference: "CIS Kubernetes 1.1"
+      timeout: 10

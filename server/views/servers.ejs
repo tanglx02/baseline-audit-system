@@ -1,0 +1,30 @@
+<%- include('_head', {title:'服务器 - 安全基线核查系统'}) %>
+<%- include('_nav', {active:'servers'}) %>
+<main class="container">
+  <h1>服务器</h1>
+  <% if (servers.length === 0) { %>
+    <p class="muted">尚未接入任何服务器。<a href="/upload">上传基线报告</a>。</p>
+  <% } else { %>
+    <table>
+      <thead><tr><th>主机名</th><th>平台</th><th>系统</th><th>扫描数</th><th>最近扫描</th><th></th></tr></thead>
+      <tbody>
+      <% servers.forEach(function(s){ %>
+        <tr>
+          <td><b><%= s.hostname %></b></td>
+          <td><span class="badge-plat <%= s.platform %>"><%= s.platform %></span></td>
+          <td><%= s.os %> <%= s.os_version||'' %></td>
+          <td><%= s.scan_count %></td>
+          <td><%= s.last_scan?s.last_scan.replace('T',' ').slice(0,19):'—' %></td>
+          <td>
+            <a class="btn btn-sm" href="/servers/<%= s.id %>">报告</a>
+            <form method="post" action="/servers/<%= s.id %>/delete" style="display:inline" onsubmit="return confirm('确认删除该服务器及其全部报告？')">
+              <button class="btn btn-sm btn-danger" type="submit">删除</button>
+            </form>
+          </td>
+        </tr>
+      <% }); %>
+      </tbody>
+    </table>
+  <% } %>
+</main>
+<%- include('_foot') %>

@@ -1,0 +1,142 @@
+catalog:
+  id: db_redis
+  platform: linux
+  version: "1.0.0"
+  description: "Redis(Linux) 数据库安全基线（补全空白章节，基于 CIS Redis Benchmark）"
+  items:
+    - id: REDIS-BIND-001
+      category: 数据库安全
+      subsystem: Redis
+      name: 监听地址绑定(禁止0.0.0.0)
+      severity: high
+      check_type: auto
+      method:
+        type: config_file
+        path_catalog: redis_conf
+        format: key_value
+        key: bind
+      judge:
+        type: regex_absent
+        value: "0.0.0.0"
+        treat_empty_as: fail
+      remediation: "redis.conf 设置 bind 127.0.0.1（或内网地址），禁止 0.0.0.0 公网暴露。"
+      reference: "CIS Redis Benchmark"
+      timeout: 10
+
+    - id: REDIS-AUTH-002
+      category: 数据库安全
+      subsystem: Redis
+      name: 设置访问口令(requirepass)
+      severity: high
+      check_type: auto
+      method:
+        type: config_file
+        path_catalog: redis_conf
+        format: key_value
+        key: requirepass
+      judge:
+        type: not_equals
+        value: ""
+        treat_empty_as: fail
+      remediation: "redis.conf 设置 requirepass <强密码>，重启 Redis。"
+      reference: "CIS Redis Benchmark"
+      timeout: 10
+
+    - id: REDIS-PROT-003
+      category: 数据库安全
+      subsystem: Redis
+      name: 启用 protected-mode
+      severity: high
+      check_type: auto
+      method:
+        type: config_file
+        path_catalog: redis_conf
+        format: key_value
+        key: protected-mode
+      judge:
+        type: equals
+        value: "yes"
+        treat_empty_as: fail
+      remediation: "redis.conf 设置 protected-mode yes。"
+      reference: "CIS Redis Benchmark"
+      timeout: 10
+
+    - id: REDIS-USER-004
+      category: 数据库安全
+      subsystem: Redis
+      name: 禁止以 root 运行 Redis
+      severity: high
+      check_type: auto
+      method:
+        type: process
+        name: redis-server
+      judge:
+        type: regex_present
+        value: '(?i)running:(?!root)'
+        treat_empty_as: fail
+      remediation: "创建专用 redis 用户并以 redis 用户启动 redis-server。"
+      reference: "CIS Redis Benchmark"
+      timeout: 10
+
+    - id: REDIS-CMD-005
+      category: 数据库安全
+      subsystem: Redis
+      name: 重命名/禁用危险命令
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -riE '^\s*rename-command' /etc/redis/redis.conf /etc/redis.conf 2>/dev/null | grep -iE 'FLUSHALL|FLUSHDB|CONFIG|KEYS' | head -5
+      judge:
+        type: regex_present
+        value: '(?i)rename-command'
+        treat_empty_as: fail
+      remediation: "redis.conf 中用 rename-command 禁用/重命名 FLUSHALL、FLUSHDB、CONFIG、KEYS 等危险命令。"
+      reference: "CIS Redis Benchmark"
+      timeout: 10
+
+    - id: REDIS-MEM-006
+      category: 数据库安全
+      subsystem: Redis
+      name: 设置最大内存限制(maxmemory)
+      severity: low
+      check_type: auto
+      method:
+        type: config_file
+        path_catalog: redis_conf
+        format: key_value
+        key: maxmemory
+      judge:
+        type: numeric_geq
+        value: 1
+        treat_empty_as: fail
+      remediation: "redis.conf 设置 maxmemory 限制，避免耗尽系统内存。"
+      reference: "CIS Redis Benchmark"
+      timeout: 10
+
+    - id: REDIS-PERM-007
+      category: 数据库安全
+      subsystem: Redis
+      name: 配置文件权限(仅属主可读写)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "redis.conf 权限应 <= 600（仅属主可读写，其他用户无权限）。需人工核查 chmod。"
+      remediation: "chmod 600 /etc/redis/redis.conf"
+      reference: "CIS Redis Benchmark"
+      timeout: 10
+
+    - id: REDIS-LOG-008
+      category: 数据库安全
+      subsystem: Redis
+      name: 启用日志与禁止裸奔端口
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "redis.conf 应设置 logfile 启用日志，且不要以默认端口 6379 暴露在公网。需人工核查。"
+      remediation: "设置 logfile 路径并启用日志；通过防火墙/绑定内网限制访问。"
+      reference: "CIS Redis Benchmark"
+      timeout: 10

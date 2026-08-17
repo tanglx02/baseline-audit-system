@@ -1,0 +1,15 @@
+{
+  "name": "baseline-license-manager",
+  "version": "1.0.0",
+  "private": true,
+  "description": "基线核查系统 - 授权管理机（独立 Windows exe，GUI）",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-packager . LicenseManager --platform win32 --arch x64 --out ../../dist-exe --overwrite"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-packager": "^17.1.2"
+  }
+}

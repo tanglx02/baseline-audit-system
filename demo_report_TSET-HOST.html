@@ -1,0 +1,99 @@
+<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><title>安全基线核查系统 安全分析报告 - TEST-HOST</title><style>
+* { box-sizing: border-box; padding: 0; margin: 0; }
+ul, li { list-style: none; }
+body { font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif; background: #f3f5f9; color: #303133; }
+.content { width: 86%; margin: 18px auto; border: 1px solid #d3e1ed; background: #fff; }
+.header { padding: 18px 0 6px; }
+.title { font-size: 26px; color: #444; text-align: center; margin: 16px 0 30px; letter-spacing: 1px; }
+.item-title { width: 100%; background-color: #f2f2f2; font-weight: bold; font-size: 17px; color: #303133; height: 46px; line-height: 46px; box-sizing: border-box; }
+.item-title > span { padding-left: 12px; }
+.item { margin-top: 18px; padding: 0 16px 8px; }
+.catalog { padding-left: 26px; }
+.catalog > li { font-size: 13px; display: block; margin: 14px 0; cursor: pointer; }
+.catalog > li a { text-decoration: none; color: #333; }
+.catalog > li a:hover { color: #1f6feb; }
+table.datagrid { width: 100%; border-top: 1px solid #d3e1ed; border-right: 1px solid #d3e1ed; border-collapse: collapse; color: #303133; }
+table.datagrid td { font-size: 12px; border-bottom: 1px solid #d3e1ed; border-left: 1px solid #d3e1ed; padding: 12px 10px; word-wrap: break-word; word-break: break-all; vertical-align: top; }
+table.datagrid th { text-align: left; border-bottom: 1px solid #c8d8e7; border-left: 1px solid #c8d8e7; padding: 14px 10px; white-space: nowrap; }
+table.datagrid thead tr { font-size: 12px; text-align: center; font-weight: 600; background-color: #ecf5ff; }
+table.datagrid thead tr td { text-align: center; font-weight: 600; }
+table.datagrid tbody tr:nth-child(even) { background: #fafcff; }
+.level { display: flex; align-items: center; gap: 8px; }
+.level .dot { width: 16px; height: 16px; border-radius: 4px; display: inline-block; }
+.level > span { font-size: 15px; font-weight: 600; }
+.chartPic { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 24px; padding: 10px 0; }
+.catbar { margin: 8px 0; }
+.catbar .lab { font-size: 12px; }
+.catbar .track { background: #eef1f5; border-radius: 6px; height: 14px; overflow: hidden; margin-top: 3px; }
+.catbar .fill { height: 100%; background: #1a7f37; }
+.rightItem > li { margin: 5px 0; font-size: 12px; }
+.sev-high { color: #c0341d; font-weight: 700; }
+.sev-medium { color: #9a6700; }
+small { color: #8a94a6; }
+</style></head><body><div class="content">
+  <div class="header"><div class="title">"安全基线核查系统"安全分析报告</div></div>
+  <div class="main-content">
+    <h2 class="item-title"><span>目录</span></h2>
+    
+  <ul class="catalog">
+    <li><a href="#title1">1.概述信息</a></li>
+    <li><a href="#title2">2.设备分类统计</a></li>
+    <li><a href="#title3">3.设备风险等级 TOP</a></li>
+    <li><a href="#title4">4.设备风险等级汇总</a></li>
+    <li><a href="#title5">5.不合规检查项 TOP 10</a></li>
+    <li><a href="#title6">6.不合规检查项汇总</a></li>
+    <li><a href="#title7">7.核查失败列表</a></li>
+  </ul>
+    
+  <div class="item">
+    <h2 class="item-title"><span id="title1">1.概述信息</span></h2>
+    <table class="datagrid">
+      <tr><td style="width:20%">风险等级</td><td style="width:80%"><div class="level"><span class="dot" style="background:#2f6fed"></span><span style="color:#2f6fed">比较安全</span></div></td></tr>
+      <tr><td>任务名称</td><td>TEST-HOST</td></tr>
+      <tr><td>策略名称</td><td>安全基线核查（4 项）</td></tr>
+      <tr><td>检查设备数</td><td>1</td></tr>
+      <tr><td>合规率</td><td><b style="color:#2f6fed">75.0%</b></td></tr>
+      <tr><td>下达任务用户</td><td>—</td></tr>
+      <tr><td>时间统计</td><td><ol class="rightItem"><li><span>1.开始时间：</span><span>2026/8/17 21:37:59</span></li><li><span>2.结束时间：</span><span>2026/8/17 21:37:59</span></li><li><span>3.报告生成时间：</span><span>2026/8/17 21:37:59</span></li></ol></td></tr>
+      <tr><td>设备统计</td><td><ol class="rightItem"><li><span>1.检查设备数：</span><span>1</span></li><li><span>2.检查成功设备数：</span><span>1</span></li><li><span>3.检查失败设备数：</span><span>0</span></li></ol></td></tr>
+      <tr><td>检查项情况</td><td><ol class="rightItem"><li><span>1.总数：</span><span>4</span></li><li><span>2.合规数：</span><span>3</span></li><li><span>3.不合规数：</span><span>1</span></li><li><span>4.人工确认数：</span><span>0</span></li><li><span>5.失败数：</span><span>0</span></li></ol></td></tr>
+    </table>
+    <div class="chartPic"><svg width="180" height="180" viewBox="0 0 180 180"><circle cx="90" cy="90" r="64" fill="none" stroke="#1a7f37" stroke-width="24" stroke-dasharray="301.59 100.53" stroke-dashoffset="0.00" transform="rotate(-90 90 90)"/><circle cx="90" cy="90" r="64" fill="none" stroke="#c0341d" stroke-width="24" stroke-dasharray="100.53 301.59" stroke-dashoffset="-301.59" transform="rotate(-90 90 90)"/><circle cx="90" cy="90" r="64" fill="none" stroke="#e08a00" stroke-width="24" stroke-dasharray="0.00 402.12" stroke-dashoffset="-402.12" transform="rotate(-90 90 90)"/><circle cx="90" cy="90" r="64" fill="none" stroke="#8a94a6" stroke-width="24" stroke-dasharray="0.00 402.12" stroke-dashoffset="-402.12" transform="rotate(-90 90 90)"/><text x="90" y="86" text-anchor="middle" font-size="16" fill="#303133">4</text><text x="90" y="104" text-anchor="middle" font-size="11" fill="#8a94a6">检查项</text></svg><div class="rightItem" style="text-align:center;margin-top:4px"><span style="display:inline-block;margin:0 8px"><i class="dot" style="background:#1a7f37"></i> 合规 3</span><span style="display:inline-block;margin:0 8px"><i class="dot" style="background:#c0341d"></i> 不合规 1</span></div></div>
+  </div>
+    
+  <div class="item">
+    <h2 class="item-title"><span id="title2">2.设备分类统计</span></h2>
+    <table class="datagrid">
+      <thead><tr><td style="width:16%">类型</td><td>设备数</td><td>检查总数</td><td>合规数</td><td>不合规数</td><td>人工确认数</td><td>失败数</td></tr></thead>
+      <tbody><tr style="text-align:center"><td>数据库</td><td>1</td><td>2</td><td>1</td><td>1</td><td>0</td><td>0</td></tr><tr style="text-align:center"><td>中间件</td><td>1</td><td>2</td><td>2</td><td>0</td><td>0</td><td>0</td></tr></tbody>
+    </table>
+  </div>
+    
+  <div class="item">
+    <h2 class="item-title"><span id="title3">3.设备风险等级 TOP</span></h2>
+    <div class="chartPic"><div class="catbar"><div class="lab">数据库 <b>50.0%</b></div><div class="track"><div class="fill" style="width:50.0%"></div></div></div><div class="catbar"><div class="lab">中间件 <b>100.0%</b></div><div class="track"><div class="fill" style="width:100.0%"></div></div></div></div>
+  </div>
+    
+  <div class="item">
+    <h2 class="item-title"><span id="title4">4.设备风险等级汇总</span></h2>
+    <table class="datagrid">
+      <thead><tr><td rowspan="2" style="width:18%">设备名称</td><td rowspan="2" style="width:12%">设备IP</td><td rowspan="2" style="width:20%">设备类型</td><td rowspan="2" style="width:10%">得分</td><td colspan="5" style="text-align:center">检查项</td></tr>
+      <tr><td>总数</td><td>合规数</td><td>不合规数</td><td>人工确认数</td><td>失败数</td></tr></thead>
+      <tbody><tr style="text-align:center"><td>TEST-HOST</td><td>—</td><td>db_redis</td><td>50.0%</td><td>2</td><td>1</td><td>1</td><td>0</td><td>0</td></tr><tr style="text-align:center"><td>TEST-HOST</td><td>—</td><td>mw_nginx</td><td>100.0%</td><td>2</td><td>2</td><td>0</td><td>0</td><td>0</td></tr></tbody>
+    </table>
+  </div>
+    
+  <div class="item">
+    <h2 class="item-title"><span id="title5">5.不合规检查项 TOP 10</span></h2>
+    <table class="datagrid"><thead><tr><td style="width:24%">名称</td><td>编号</td><td>类别</td><td>权重</td><td>受影响主机数</td><td>出现次数</td><td>受影响主机</td></tr></thead><tbody><tr style="text-align:center"><td style="text-align:left">口令</td><td>R-1</td><td>db_redis</td><td>high</td><td>1</td><td>1</td><td>TEST-HOST</td></tr></tbody></table>
+  </div>
+  <div class="item">
+    <h2 class="item-title"><span id="title6">6.不合规检查项汇总</span></h2>
+    <table class="datagrid"><thead><tr><td style="width:24%">名称</td><td>编号</td><td>类别</td><td>权重</td><td>受影响主机数</td><td>出现次数</td><td>受影响主机</td></tr></thead><tbody><tr style="text-align:center"><td style="text-align:left">口令</td><td>R-1</td><td>db_redis</td><td>high</td><td>1</td><td>1</td><td>TEST-HOST</td></tr></tbody></table>
+  </div>
+    
+  <div class="item">
+    <h2 class="item-title"><span id="title7">7.核查失败列表</span></h2>
+    <table class="datagrid"><thead><tr><td style="width:30%">名称</td><td>IP</td><td>类别</td><td>失败原因</td></tr></thead><tbody><tr><td colspan="4" style="text-align:center">无核查失败项</td></tr></tbody></table>
+  </div>
+  </div></div></body></html>

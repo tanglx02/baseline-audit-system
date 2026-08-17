@@ -1,0 +1,234 @@
+catalog:
+  id: db_oracle_win
+  platform: windows
+  version: "1.0.0"
+  description: "Oracle(Windows) 数据库安全基线（补全空白章节，参考 Oracle Linux 基线适配 Windows 路径）"
+  items:
+    - id: ORAW-AUD-001
+      category: 数据库安全
+      subsystem: Oracle
+      name: 数据库审计策略(audit_trail)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "以 sysdba 执行 select value from v$parameter where name='audit_trail'; audit_trail 不为 NONE 则合规。需连库确认。"
+      remediation: "alter system set audit_trail='OS' scope=spfile; 重启数据库。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORAW-PWD-002
+      category: 数据库安全
+      subsystem: Oracle
+      name: 口令生存期(PASSWORD_LIFE_TIME<=90)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "select limit from dba_profiles where resource_name='PASSWORD_LIFE_TIME'; 值<=90 合规。需 SQL 核查。"
+      remediation: "alter profile DEFAULT limit PASSWORD_LIFE_TIME 90;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORAW-PRIV-003
+      category: 数据库安全
+      subsystem: Oracle
+      name: 管理对象权限(除默认用户外无DBA角色)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "select a.username from dba_users a left join dba_role_privs b on a.username=b.grantee where granted_role='DBA' and a.username not in ('SYS','SYSMAN','SYSTEM'); 无其它 DBA 用户则合规。"
+      remediation: "revoke dba from <username>;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORAW-DICT-004
+      category: 数据库安全
+      subsystem: Oracle
+      name: 启用数据字典保护(O7_DICTIONARY_ACCESSIBILITY=false)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "O7_DICTIONARY_ACCESSIBILITY 应为 false。需 SQL/参数核查。"
+      remediation: "alter system set O7_DICTIONARY_ACCESSIBILITY=FALSE scope=spfile; 重启。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORAW-PWD-005
+      category: 数据库安全
+      subsystem: Oracle
+      name: 最大认证失败次数(FAILED_LOGIN_ATTEMPTS<5)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "FAILED_LOGIN_ATTEMPTS 值<5(建议5)则合规。需 SQL 核查。"
+      remediation: "alter profile DEFAULT limit FAILED_LOGIN_ATTEMPTS 5;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORAW-REM-006
+      category: 数据库安全
+      subsystem: Oracle
+      name: 限制SYSDBA远程登录(REMOTE_LOGIN_PASSWORDFILE=NONE)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "REMOTE_LOGIN_PASSWORDFILE 值为 NONE 则合规。需 SQL 核查。"
+      remediation: "alter system set REMOTE_LOGIN_PASSWORDFILE=NONE scope=spfile;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORAW-NET-007
+      category: 数据库安全
+      subsystem: Oracle
+      name: 限制监听器远程管理(ADMIN_RESTRICTIONS)
+      severity: high
+      check_type: auto
+      method:
+        type: config_file
+        path_catalog: oracle_listener_conf
+        format: key_value
+        key: ADMIN_RESTRICTIONS_LISTENER
+      judge:
+        type: equals
+        value: "ON"
+        treat_empty_as: fail
+      remediation: "在 listener.ora 增加 ADMIN_RESTRICTIONS_LISTENER=ON 防止运行时被远程篡改。"
+      reference: "CIS Oracle Benchmark"
+      timeout: 10
+
+    - id: ORAW-NET-008
+      category: 数据库安全
+      subsystem: Oracle
+      name: 监听器启用口令验证(非默认空口令)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "Windows 上 listener.ora 的 SID_LIST 不应明文暴露，且本地 OS 认证应受限。需人工核查监听器配置与密码文件。"
+      remediation: "为监听器配置密码文件保护，禁用远程 listener 控制。"
+      reference: "CIS Oracle Benchmark"
+      timeout: 10
+
+    - id: ORAW-SQL-009
+      category: 数据库安全
+      subsystem: Oracle
+      name: 关闭 SQLNET.ORA 危险参数
+      severity: high
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          (Get-Content (Resolve-Path "%ORACLE_HOME%\network\admin\sqlnet.ora" -ErrorAction SilentlyContinue).Path -ErrorAction SilentlyContinue) -join " "
+      judge:
+        type: regex_absent
+        value: '(?i)SQLNET\.AUTHENTICATION_SERVICES\s*=\s*\(NONE\)'
+        treat_empty_as: pass
+      remediation: "确认 sqlnet.ora 未关闭认证服务；按需保留 NTSA 认证。"
+      reference: "CIS Oracle Benchmark"
+      timeout: 10
+
+    - id: ORAW-SQL-010
+      category: 数据库安全
+      subsystem: Oracle
+      name: 启用 sqlnet 加密与校验(ENCRYPTION/CHECKSUM)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          (Get-Content (Resolve-Path "%ORACLE_HOME%\network\admin\sqlnet.ora" -ErrorAction SilentlyContinue).Path -ErrorAction SilentlyContinue) -join " "
+      judge:
+        type: regex_present
+        value: '(?i)SQLNET\.ENCRYPTION_SERVER\s*=\s*REQUIRED|SQLNET\.CRYPTO_CHECKSUM_SERVER\s*=\s*REQUIRED'
+        treat_empty_as: fail
+      remediation: "在 sqlnet.ora 设置 SQLNET.ENCRYPTION_SERVER=REQUIRED 与 SQLNET.CRYPTO_CHECKSUM_SERVER=REQUIRED。"
+      reference: "CIS Oracle Benchmark"
+      timeout: 10
+
+    - id: ORAW-LST-011
+      category: 数据库安全
+      subsystem: Oracle
+      name: 监听器日志与跟踪开启
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "listener.ora 应配置 LOG_DIRECTORY_LISTENER / LOG_FILE_LISTENER，确保监听器日志可用。需人工核查。"
+      remediation: "在 listener.ora 增加 LOG_DIRECTORY_LISTENER 与 LOG_FILE_LISTENER 配置。"
+      reference: "CIS Oracle Benchmark"
+      timeout: 10
+
+    - id: ORAW-SVC-012
+      category: 数据库安全
+      subsystem: Oracle
+      name: Oracle 服务以专用低权账户运行
+      severity: high
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: |-
+          (Get-WmiObject Win32_Service -Filter "Name LIKE 'OracleService%' OR Name='OracleOraDB19Home1TNSListener'" | Select-Object -First 1).StartName
+      judge:
+        type: regex_absent
+        value: "(?i)LocalSystem|NT AUTHORITY\\SYSTEM"
+        treat_empty_as: fail
+      remediation: "将 Oracle 服务启动账户改为专用低权限域/本地账户，避免使用 LocalSystem。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORAW-FILE-013
+      category: 数据库安全
+      subsystem: Oracle
+      name: 数据库文件/口令文件权限
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "ORACLE_HOME 及数据文件目录应限制为 DBA 组与管理员访问，口令文件(orapw)权限应受限。需人工核查。"
+      remediation: "通过 NTFS ACL 收紧 ORACLE_HOME 与口令文件权限。"
+      reference: "CIS Oracle Benchmark"
+      timeout: 10
+
+    - id: ORAW-ACCT-014
+      category: 数据库安全
+      subsystem: Oracle
+      name: 无默认/空口令账号(SCOTT 等)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "锁定或删除 SCOTT、HR 等预置示例账号；确认无空口令账号。需连库核查 dba_users。"
+      remediation: "alter user SCOTT account lock; 或 drop user SCOTT;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: ORAW-PATCH-015
+      category: 数据库安全
+      subsystem: Oracle
+      name: 已安装最新安全补丁(PSU/CPU)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "opatch lsinventory 确认已应用最新 CPU 补丁。需人工核查补丁级别。"
+      remediation: "下载并应用 Oracle 最新季度安全补丁(CPU)。"
+      reference: "CIS Oracle Benchmark"
+      timeout: 10
+
+    - id: ORAW-LOG-016
+      category: 数据库安全
+      subsystem: Oracle
+      name: 审计记录归档与防篡改
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "审计轨迹(audit_trail=OS 时的 .aud 文件)应写入受保护目录并纳入日志收集。需人工核查。"
+      remediation: "将审计目录权限收紧并接入集中日志。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10

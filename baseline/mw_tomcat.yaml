@@ -1,0 +1,200 @@
+catalog:
+  id: mw_tomcat
+  platform: linux
+  version: "1.0.0"
+  description: "Tomcat(Linux) 中间件安全基线（来自中间件安全核查项笔记）"
+  items:
+    - id: TOMCAT-SESSION-001
+      category: 中间件安全
+      subsystem: Tomcat
+      name: 定时登出(connectionTimeout)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -rhoE "connectionTimeout=\"[0-9]+\"" $CATALINA_HOME/conf/server.xml 2>/dev/null | grep -oE "[0-9]+" | tail -1
+      judge:
+        type: numeric_leq
+        value: 300000
+        treat_empty_as: fail
+      remediation: "在 server.xml 的 Connector 设置 connectionTimeout=300000（毫秒）"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: TOMCAT-SSL-002
+      category: 中间件安全
+      subsystem: Tomcat
+      name: HTTP 加密协议(HTTPS 管理页面)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "使用 HTTPS 协议可成功访问 Tomcat 管理页面则合规，否则不合规。需人工访问验证。"
+      remediation: "配置 keytool 证书并在 server.xml 增加 SSL Connector(SSLEnabled=true)，重启 Tomcat"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: TOMCAT-ERR-003
+      category: 中间件安全
+      subsystem: Tomcat
+      name: 错误页面重定向
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "访问不存在的页面(如 /manager12345)应跳转到自定义错误页。需人工验证。"
+      remediation: "在 web.xml 增加 <error-page> 指向自定义错误页并重启"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: TOMCAT-ROLE-004
+      category: 中间件安全
+      subsystem: Tomcat
+      name: 配置用户最小权限(远程管理角色)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -iE "admin|manager" $CATALINA_HOME/conf/tomcat-users.xml 2>/dev/null | head -2 | tr '\n' ' '
+      judge:
+        type: regex_present
+        value: "(?i)admin|manager"
+        treat_empty_as: fail
+      remediation: "在 tomcat-users.xml 的 <tomcat-users> 下为管理用户授予 admin-gui/manager-gui 等最小所需角色"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: TOMCAT-PORT-005
+      category: 中间件安全
+      subsystem: Tomcat
+      name: 更改默认管理端口
+      severity: low
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -rhoE "port=\"[0-9]+\"" $CATALINA_HOME/conf/server.xml 2>/dev/null | grep -oE "[0-9]+" | head -1
+      judge:
+        type: not_equals
+        value: "8080"
+        treat_empty_as: fail
+      remediation: "修改 server.xml Connector port 为非 8080 并重启"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: TOMCAT-LIST-006
+      category: 中间件安全
+      subsystem: Tomcat
+      name: 禁止目录列出(listings)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -A2 "listings" $CATALINA_HOME/conf/web.xml 2>/dev/null | grep -oE "false|true" | tail -1
+      judge:
+        type: equals
+        value: "false"
+        treat_empty_as: fail
+      remediation: "在 web.xml 的 listings 参数设为 false 并重启"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: TOMCAT-LOG-007
+      category: 中间件安全
+      subsystem: Tomcat
+      name: 记录用户登录行为(AccessLogValve)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -c "AccessLogValve" $CATALINA_HOME/conf/server.xml 2>/dev/null || echo 0
+      judge:
+        type: numeric_geq
+        value: 1
+        treat_empty_as: fail
+      remediation: "在 server.xml 的 <Host> 中启用 AccessLogValve 记录访问日志"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: TOMCAT-SHUT-008
+      category: 中间件安全
+      subsystem: Tomcat
+      name: 防止恶意关闭 Tomcat 服务(shutdown 口令)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -rhoE "shutdown=\"[^\"]*\"" $CATALINA_HOME/conf/server.xml 2>/dev/null | head -1
+      judge:
+        type: regex_absent
+        value: "SHUTDOWN"
+        treat_empty_as: fail
+      remediation: "将 server.xml 中 <Server port=\"8005\" shutdown=\"SHUTDOWN\"> 的 shutdown 改为复杂字符串并重启"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: TOMCAT-USER-009
+      category: 中间件安全
+      subsystem: Tomcat
+      name: 服务账号管理(不以 root 运行)
+      severity: high
+      check_type: auto
+      method:
+        type: process
+        name: tomcat
+      judge:
+        type: regex_absent
+        value: "running:root"
+        treat_empty_as: pass
+      remediation: "创建 tomcat 用户/组并以 tomcat 身份启动服务"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: TOMCAT-BANNER-010
+      category: 中间件安全
+      subsystem: Tomcat
+      name: 更改系统 Banner 信息
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "执行 $CATALINA_HOME/bin/version.sh 查看 server.info/server.number/server.built 应为自定义内容。需人工核查。"
+      remediation: "修改 lib/catalina.jar 中 Serverinfo.properties 的 server.info/server.number/server.built 以掩盖真实版本"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: TOMCAT-PWD-011
+      category: 中间件安全
+      subsystem: Tomcat
+      name: 口令复杂度(tomcat-users)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "检查 tomcat-users.xml 中所有账号口令应满足长度>=8 且含数字/大小写/特殊符号中至少两类。需人工核查。"
+      remediation: "为所有 Tomcat 管理账号设置满足复杂度要求的口令"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: TOMCAT-CONN-012
+      category: 中间件安全
+      subsystem: Tomcat
+      name: 限制最大连接数(maxConnections)
+      severity: low
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -rhoE "maxConnections=\"[0-9]+\"" $CATALINA_HOME/conf/server.xml 2>/dev/null | grep -oE "[0-9]+" | tail -1
+      judge:
+        type: numeric_leq
+        value: 200
+        treat_empty_as: fail
+      remediation: "在 server.xml Connector 设置 maxConnections=200 并重启"
+      reference: "等保2.0 8.1.4"
+      timeout: 10

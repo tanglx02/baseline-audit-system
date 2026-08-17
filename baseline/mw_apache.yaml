@@ -1,0 +1,180 @@
+catalog:
+  id: mw_apache
+  platform: linux
+  version: "1.0.0"
+  description: "Apache(Linux) 中间件安全基线（来自中间件安全核查项笔记）"
+  items:
+    - id: APACHE-USER-001
+      category: 中间件安全
+      subsystem: Apache
+      name: 以指定用户和组运行服务(非 root)
+      severity: high
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          f="$HTTPD_HOME/conf/httpd.conf /etc/httpd/conf/httpd.conf /etc/apache2/apache2.conf"; u=$(grep -iE "^\s*User\s+" $f 2>/dev/null | awk '{print $2}' | tail -1); g=$(grep -iE "^\s*Group\s+" $f 2>/dev/null | awk '{print $2}' | tail -1); if [ -n "$u" ] && [ "$u" != "root" ] && [ -n "$g" ] && [ "$g" != "root" ]; then echo OK; else echo FAIL; fi
+      judge:
+        type: equals
+        value: "OK"
+        treat_empty_as: fail
+      remediation: "在 httpd.conf 设置 User apache 与 Group apache（专用账号）"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: APACHE-PERM-002
+      category: 中间件安全
+      subsystem: Apache
+      name: httpd.conf 配置文件权限(600)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          stat -c '%a' $HTTPD_HOME/conf/httpd.conf /etc/httpd/conf/httpd.conf /etc/apache2/apache2.conf 2>/dev/null | head -1
+      judge:
+        type: equals
+        value: "600"
+        treat_empty_as: fail
+      remediation: "chmod 600 httpd.conf"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: APACHE-LOG-003
+      category: 中间件安全
+      subsystem: Apache
+      name: 设置启用日志功能
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -iE "ErrorLog|CustomLog|LogLevel" $HTTPD_HOME/conf/httpd.conf /etc/httpd/conf/httpd.conf /etc/apache2/apache2.conf 2>/dev/null | grep -vE '^#' | head -3 | tr '\n' ' '
+      judge:
+        type: regex_present
+        value: "(?=.*ErrorLog)(?=.*CustomLog)"
+        treat_empty_as: fail
+      remediation: "在 httpd.conf 配置 ErrorLog、LogLevel notice、CustomLog 与 LogFormat combined"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: APACHE-LOG-004
+      category: 中间件安全
+      subsystem: Apache
+      name: 日志文件访问权限(644)
+      severity: low
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          bad=0; for f in $HTTPD_HOME/logs/*.log /var/log/httpd/*.log /var/log/apache2/*.log; do [ -f "$f" ] && p=$(stat -c '%a' "$f" 2>/dev/null); [ -n "$p" ] && [ "$p" -gt 644 ] && bad=1; done; [ "$bad" -eq 0 ] && echo OK || echo FAIL
+      judge:
+        type: equals
+        value: "OK"
+        treat_empty_as: pass
+      remediation: "chmod -R 644 日志文件"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: APACHE-ERR-005
+      category: 中间件安全
+      subsystem: Apache
+      name: 配置错误页面重定向
+      severity: low
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -iE "ErrorDocument" $HTTPD_HOME/conf/httpd.conf /etc/httpd/conf/httpd.conf /etc/apache2/apache2.conf 2>/dev/null | grep -vE '^#' | head -2 | tr '\n' ' '
+      judge:
+        type: regex_present
+        value: "ErrorDocument"
+        treat_empty_as: fail
+      remediation: "在 httpd.conf 增加 ErrorDocument 400/401/403/404/500 指向自定义页面"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: APACHE-LIST-006
+      category: 中间件安全
+      subsystem: Apache
+      name: 禁止显示目录结构(去掉 Indexes)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -iE "Options\s+.*Indexes" $HTTPD_HOME/conf/httpd.conf /etc/httpd/conf/httpd.conf /etc/apache2/apache2.conf 2>/dev/null | grep -vE '^#' | head -2 | tr '\n' ' '
+      judge:
+        type: regex_absent
+        value: '(?i)Options\s+.*Indexes'
+        treat_empty_as: pass
+      remediation: "在 Directory 的 Options 中去掉 Indexes 并重启 Apache"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: APACHE-BANNER-007
+      category: 中间件安全
+      subsystem: Apache
+      name: 隐藏版本号(ServerSignature/ServerTokens)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -iE "ServerSignature|ServerTokens" $HTTPD_HOME/conf/httpd.conf /etc/httpd/conf/httpd.conf /etc/apache2/apache2.conf 2>/dev/null | grep -vE '^#' | head -2 | tr '\n' ' '
+      judge:
+        type: regex_present
+        value: '(?=.*ServerSignature\s+Off)(?=.*ServerTokens\s+Prod)'
+        treat_empty_as: fail
+      remediation: "在 httpd.conf 设置 ServerSignature Off 与 ServerTokens Prod"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: APACHE-FILE-008
+      category: 中间件安全
+      subsystem: Apache
+      name: 删除缺省安装的文件
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "检查 $HTTPD_HOME/htdocs、cgi-bin、manual 等缺省文件/目录是否存在，应删除。需人工核查。"
+      remediation: "删除缺省 HTML/CGI/说明文件：rm -rf $APACHE_HOME/htdocs/* cgi-bin/* manual/*"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: APACHE-SESSION-009
+      category: 中间件安全
+      subsystem: Apache
+      name: 会话超时时间设置
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          f="$HTTPD_HOME/conf/httpd.conf /etc/httpd/conf/httpd.conf /etc/apache2/apache2.conf"; ka=$(grep -iE "^\s*KeepAlive\s+" $f 2>/dev/null | awk '{print $2}' | tail -1); kat=$(grep -iE "KeepAliveTimeout" $f 2>/dev/null | grep -oE "[0-9]+" | tail -1); to=$(grep -iE "^\s*Timeout\s+" $f 2>/dev/null | grep -oE "[0-9]+" | tail -1); if [ "$ka" = "On" ] && [ -n "$kat" ] && [ "$kat" -le 300 ] && [ -n "$to" ] && [ "$to" -le 300 ]; then echo OK; else echo FAIL; fi
+      judge:
+        type: equals
+        value: "OK"
+        treat_empty_as: fail
+      remediation: "在 httpd.conf 设置 KeepAlive On、KeepAliveTimeout 300、Timeout 300 并重启"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: APACHE-CONN-010
+      category: 中间件安全
+      subsystem: Apache
+      name: 限制最大连接数(MaxClients)
+      severity: low
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -iE "MaxClients|MaxRequestWorkers" $HTTPD_HOME/conf/httpd.conf /etc/httpd/conf/httpd.conf /etc/apache2/apache2.conf 2>/dev/null | grep -vE '^#' | head -1
+      judge:
+        type: regex_present
+        value: "(?i)MaxClients|MaxRequestWorkers"
+        treat_empty_as: fail
+      remediation: "在 httpd.conf 按实际需求配置 MaxClients(或 MaxRequestWorkers) 并重启"
+      reference: "等保2.0 8.1.4"
+      timeout: 10

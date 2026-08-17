@@ -1,0 +1,161 @@
+catalog:
+  id: mw_weblogic
+  platform: linux
+  version: "1.0.0"
+  description: "WebLogic(Linux) 中间件安全基线（来自中间件安全核查项笔记，共 12 项）"
+  items:
+    - id: WLS-SOCK-001
+      category: 中间件安全
+      subsystem: WebLogic
+      name: 限制socket数量(max-open-sock-count<=250)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "config.xml 中 max-open-sock-count 节点值<=250(且不为-1)则合规。需人工核查域 config.xml。"
+      remediation: "在 $DOMAIN_HOME/config/config.xml 的 <server> 下设 <max-open-sock-count>250</max-open-sock-count>，重启。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: WLS-LOG-002
+      category: 中间件安全
+      subsystem: WebLogic
+      name: 开启日志功能(HTTP访问日志)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "控制台→环境→服务器→日志记录→HTTP，已勾选『启用HTTP访问日志文件』且日志功能启动则合规。需人工核查。"
+      remediation: "启用 HTTP 访问日志文件并启动日志功能。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: WLS-SSL-003
+      category: 中间件安全
+      subsystem: WebLogic
+      name: 配置加密协议(SSL端口非7002)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "启用 SSL 监听端口且 ssl 监听端口不为 7002 则合规。需人工核查控制台。"
+      remediation: "勾选启用 SSL 监听端口并改为非 7002 的端口。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: WLS-PORT-004
+      category: 中间件安全
+      subsystem: WebLogic
+      name: 更改默认管理端口(非7001)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "服务器监听端口不为 7001 则合规。需人工核查控制台。"
+      remediation: "修改默认监听端口为非 7001。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: WLS-LOCK-005
+      category: 中间件安全
+      subsystem: WebLogic
+      name: 帐号锁定策略
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "安全领域→用户封锁：已启用锁定、封锁阀值<=5、封锁持续时间>=3、锁定重置持续时间>=3，均满足则合规。需人工核查。"
+      remediation: "启用锁定，设置封锁阀值=5、封锁持续时间=3、锁定重置持续时间=3。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: WLS-HOST-006
+      category: 中间件安全
+      subsystem: WebLogic
+      name: 主机名认证(设为BEA主机名验证器)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "服务器→配置→SSL→高级，主机名验证(Hostname Verification)设为『无/BEA主机名验证器』则合规。需人工核查。"
+      remediation: "将主机名验证设置为 BEA 主机名验证器或『无』。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: WLS-HDR-007
+      category: 中间件安全
+      subsystem: WebLogic
+      name: 禁用 Send Server Header
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "服务器→协议→HTTP，未勾选『在HTTP头中发送服务器名』则合规。需人工核查。"
+      remediation: "取消勾选『在HTTP头中发送服务器名(Send Server header)』。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: WLS-CTX-008
+      category: 中间件安全
+      subsystem: WebLogic
+      name: 修改控制台上下文路径(非console)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "domain设置→配置→一般信息→高级，控制台上下文路径不为 console 则合规。需人工核查。"
+      remediation: "将控制台上下文路径设置为自定义内容。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: WLS-LOGN-009
+      category: 中间件安全
+      subsystem: WebLogic
+      name: 定义日志名称和存储位置
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "域→环境→服务器→日志记录→一般信息，已自定义日志存储路径和名称则合规。需人工核查。"
+      remediation: "修改日志文件名称与存储路径为自定义位置。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: WLS-TOUT-010
+      category: 中间件安全
+      subsystem: WebLogic
+      name: 控制台会话超时(<=300秒)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "domain设置→配置→一般信息→高级→控制台会话超时<=300秒则合规。需人工核查。"
+      remediation: "设置控制台会话超时时间为 300 秒。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: WLS-LOGR-011
+      category: 中间件安全
+      subsystem: WebLogic
+      name: 日志滚动保留(>=180天)
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "日志记录各标签滚动类型=按时间、间隔24、保留文件数>=180(约6个月)则合规。需人工核查。"
+      remediation: "设置滚动类型按时间、间隔24、保留文件数>=180。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: WLS-PERM-012
+      category: 中间件安全
+      subsystem: WebLogic
+      name: 重要配置文件权限(仅管理员可访问)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "WebLogic 配置文件(如 config.xml、boot.properties)权限仅限应用管理员/主机超级管理员，其他账号无读写执行权限则合规。需人工核查 chmod。"
+      remediation: "chmod o-rwx <配置文件>"
+      reference: "等保2.0 8.1.4"
+      timeout: 10

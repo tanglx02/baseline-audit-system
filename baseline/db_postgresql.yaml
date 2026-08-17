@@ -1,0 +1,173 @@
+catalog:
+  id: db_postgresql
+  platform: linux
+  version: "1.0.0"
+  description: "PostgreSQL(Linux) 数据库安全基线（补全空白章节，基于 CIS PostgreSQL Benchmark）"
+  items:
+    - id: PG-LISTEN-001
+      category: 数据库安全
+      subsystem: PostgreSQL
+      name: 监听地址(禁止*)
+      severity: high
+      check_type: auto
+      method:
+        type: config_file
+        path_catalog: postgresql_conf
+        format: key_value
+        key: listen_addresses
+      judge:
+        type: regex_absent
+        value: '\*'
+        treat_empty_as: fail
+      remediation: "postgresql.conf 设置 listen_addresses = 'localhost' 或指定内网 IP，禁止 '*'。"
+      reference: "CIS PostgreSQL Benchmark"
+      timeout: 10
+
+    - id: PG-PWENC-002
+      category: 数据库安全
+      subsystem: PostgreSQL
+      name: 口令加密方式(scram-sha-256)
+      severity: high
+      check_type: auto
+      method:
+        type: config_file
+        path_catalog: postgresql_conf
+        format: key_value
+        key: password_encryption
+      judge:
+        type: equals
+        value: "scram-sha-256"
+        treat_empty_as: fail
+      remediation: "postgresql.conf 设置 password_encryption = scram-sha-256，并重置用户口令。"
+      reference: "CIS PostgreSQL Benchmark"
+      timeout: 10
+
+    - id: PG-HBA-003
+      category: 数据库安全
+      subsystem: PostgreSQL
+      name: pg_hba 不允许 trust 认证
+      severity: high
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: "grep -vE '^\\s*#' $PGDATA/pg_hba.conf /var/lib/pgsql/data/pg_hba.conf /etc/postgresql/pg_hba.conf 2>/dev/null | grep -iwE 'trust' | head -5"
+      judge:
+        type: regex_absent
+        value: "(?i)trust"
+        treat_empty_as: pass
+      remediation: "pg_hba.conf 中将所有 trust 认证改为 scram-sha-256 / md5，禁止 trust。"
+      reference: "CIS PostgreSQL Benchmark"
+      timeout: 10
+
+    - id: PG-LOGCONN-004
+      category: 数据库安全
+      subsystem: PostgreSQL
+      name: 记录连接日志(log_connections)
+      severity: medium
+      check_type: auto
+      method:
+        type: config_file
+        path_catalog: postgresql_conf
+        format: key_value
+        key: log_connections
+      judge:
+        type: equals
+        value: "on"
+        treat_empty_as: fail
+      remediation: "postgresql.conf 设置 log_connections = on。"
+      reference: "CIS PostgreSQL Benchmark"
+      timeout: 10
+
+    - id: PG-SSL-005
+      category: 数据库安全
+      subsystem: PostgreSQL
+      name: 启用 SSL 加密传输
+      severity: high
+      check_type: auto
+      method:
+        type: config_file
+        path_catalog: postgresql_conf
+        format: key_value
+        key: ssl
+      judge:
+        type: equals
+        value: "on"
+        treat_empty_as: fail
+      remediation: "postgresql.conf 设置 ssl = on 并配置服务器证书，启用传输加密。"
+      reference: "CIS PostgreSQL Benchmark"
+      timeout: 10
+
+    - id: PG-USER-006
+      category: 数据库安全
+      subsystem: PostgreSQL
+      name: 禁止以 root 运行
+      severity: high
+      check_type: auto
+      method:
+        type: process
+        name: postgres
+      judge:
+        type: regex_present
+        value: '(?i)running:(?!root)'
+        treat_empty_as: fail
+      remediation: "以专用 postgres 用户启动 PostgreSQL 服务。"
+      reference: "CIS PostgreSQL Benchmark"
+      timeout: 10
+
+    - id: PG-MAXCONN-007
+      category: 数据库安全
+      subsystem: PostgreSQL
+      name: 最大连接数限制(<=1000)
+      severity: medium
+      check_type: auto
+      method:
+        type: config_file
+        path_catalog: postgresql_conf
+        format: key_value
+        key: max_connections
+      judge:
+        type: numeric_leq
+        value: 1000
+        treat_empty_as: fail
+      remediation: "postgresql.conf 设置合理的 max_connections（<=1000）。"
+      reference: "CIS PostgreSQL Benchmark"
+      timeout: 10
+
+    - id: PG-SUPER-008
+      category: 数据库安全
+      subsystem: PostgreSQL
+      name: 收敛超级用户/默认账号
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "应使用非默认超级用户名、移除或禁用不必要的超级用户与示例库(postgres 默认库按需保留)。需以 DBA 身份核查角色与库。"
+      remediation: "回收不必要的 SUPERUSER 权限，使用强口令管理超级用户。"
+      reference: "CIS PostgreSQL Benchmark"
+      timeout: 10
+
+    - id: PG-PERMS-009
+      category: 数据库安全
+      subsystem: PostgreSQL
+      name: 数据目录权限(仅属主)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "PGDATA 数据目录权限应仅限 postgres 属主(700)，文件 600。需人工核查 chmod/chown。"
+      remediation: "chmod 700 $PGDATA; chown -R postgres:postgres $PGDATA"
+      reference: "CIS PostgreSQL Benchmark"
+      timeout: 10
+
+    - id: PG-AUDIT-010
+      category: 数据库安全
+      subsystem: PostgreSQL
+      name: 启用审计扩展(pgaudit)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "生产环境建议安装并启用 pgaudit 扩展记录关键操作审计。需人工核查 shared_preload_libraries。"
+      remediation: "安装 pgaudit 并在 postgresql.conf 设置 shared_preload_libraries='pgaudit'，配置审计策略。"
+      reference: "CIS PostgreSQL Benchmark"
+      timeout: 10

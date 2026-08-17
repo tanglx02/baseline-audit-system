@@ -1,0 +1,204 @@
+catalog:
+  id: db_mariadb
+  platform: linux
+  version: "1.0.0"
+  description: "MariaDB(Linux) 数据库安全基线（补全空白章节，参考 MySQL 基线，基于 CIS MariaDB）"
+  items:
+    - id: MARIADB-LOG-001
+      category: 数据库安全
+      subsystem: MariaDB
+      name: 配置日志功能
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -rihE "log_error|log_bin|general_log" /etc/my.cnf /etc/mysql/my.cnf /etc/mysql/mariadb.conf.d/*.cnf $MARIADB_HOME/my.cnf 2>/dev/null | grep -vE '^#' | head -5 | tr '\n' ' '
+      judge:
+        type: regex_present
+        value: "(?=.*log_error)(?=.*log_bin|.*general_log)"
+        treat_empty_as: fail
+      remediation: "在 [mysqld] 增加 log_error、开启 log_bin/general_log 并重启 mariadb。"
+      reference: "CIS MariaDB Benchmark"
+      timeout: 10
+
+    - id: MARIADB-ACCT-002
+      category: 数据库安全
+      subsystem: MariaDB
+      name: 删除匿名/无关账号
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "以管理员登录后执行 SELECT count(*) FROM mysql.user WHERE user=''; 结果为 0 则合规。需连库确认。"
+      remediation: "DROP USER ''@'localhost'; DROP USER ''@'%';"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MARIADB-ACCT-003
+      category: 数据库安全
+      subsystem: MariaDB
+      name: 更改 root 用户名称
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "执行 SELECT count(*) FROM mysql.user WHERE user='root'; 为 0 则合规。需连库确认。"
+      remediation: "RENAME USER 'root'@'localhost' TO '新用户名'@'localhost';"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MARIADB-CONN-004
+      category: 数据库安全
+      subsystem: MariaDB
+      name: 设置最大连接数
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          f="/etc/my.cnf /etc/mysql/my.cnf /etc/mysql/mariadb.conf.d/*.cnf $MARIADB_HOME/my.cnf"; mc=$(grep -rihE "^\s*max_connections" $f 2>/dev/null | grep -oE "[0-9]+" | tail -1); me=$(grep -rihE "max_connect_errors" $f 2>/dev/null | grep -oE "[0-9]+" | tail -1); if [ -n "$mc" ] && [ "$mc" -le 1000 ] && { [ -z "$me" ] || [ "$me" -le 10 ]; }; then echo OK; else echo FAIL; fi
+      judge:
+        type: equals
+        value: "OK"
+        treat_empty_as: fail
+      remediation: "[mysqld] 设置 max_connections=1000、max_connect_errors=5。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MARIADB-PWD-005
+      category: 数据库安全
+      subsystem: MariaDB
+      name: 避免弱口令/空密码账号
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "执行 SELECT * FROM mysql.user WHERE authentication_string='' OR authentication_string IS NULL; 无结果则合规。需连库确认。"
+      remediation: "为所有空密码/默认密码账号设置强口令：ALTER USER '<user>' IDENTIFIED BY '强口令';"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MARIADB-PROC-006
+      category: 数据库安全
+      subsystem: MariaDB
+      name: 禁止以 root 权限运行
+      severity: high
+      check_type: auto
+      method:
+        type: process
+        name: mariadbd
+      judge:
+        type: regex_absent
+        value: "running:root"
+        treat_empty_as: pass
+      remediation: "以 mysql 专用用户启动 mariadbd（systemd 单元已默认 user=mysql）。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MARIADB-NET-007
+      category: 数据库安全
+      subsystem: MariaDB
+      name: 修改默认端口(非3306)
+      severity: low
+      check_type: auto
+      method:
+        type: config_file
+        path_catalog: mariadb_conf
+        format: ini
+        section: mysqld
+        key: port
+      judge:
+        type: not_equals
+        value: "3306"
+        treat_empty_as: fail
+      remediation: "在 [mysqld] 设置 port=<非3306> 并重启 mariadb。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MARIADB-FILE-008
+      category: 数据库安全
+      subsystem: MariaDB
+      name: 数据目录权限(属主为 mysql)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "数据目录(/var/lib/mysql)及文件属主/属组应为 mysql。需人工核查 chown/chmod。"
+      remediation: "chown -R mysql:mysql /var/lib/mysql"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MARIADB-HIST-009
+      category: 数据库安全
+      subsystem: MariaDB
+      name: 命令历史记录保护
+      severity: low
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          if [ -L "$HOME/.mysql_history" ]; then readlink "$HOME/.mysql_history"; elif [ -f "$HOME/.mysql_history" ]; then echo "exists"; else echo "none"; fi
+      judge:
+        type: regex_present
+        value: "/dev/null|none"
+        treat_empty_as: pass
+      remediation: "ln -s /dev/null ~/.mysql_history"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MARIADB-PWD-010
+      category: 数据库安全
+      subsystem: MariaDB
+      name: 口令复杂度策略(validate_password)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -rihE "validate_password" /etc/my.cnf /etc/mysql/my.cnf /etc/mysql/mariadb.conf.d/*.cnf $MARIADB_HOME/my.cnf 2>/dev/null | grep -vE '^#' | head -3 | tr '\n' ' '
+      judge:
+        type: regex_present
+        value: '(?i)validate_password_policy\s*[= ]\s*(1|MEDIUM|2|STRONG)'
+        treat_empty_as: fail
+      remediation: "在 [mysqld] 加载 validate_password 插件并设置 policy=MEDIUM。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MARIADB-LOCAL-011
+      category: 数据库安全
+      subsystem: MariaDB
+      name: 禁用 LOCAL INFILE
+      severity: medium
+      check_type: auto
+      method:
+        type: config_file
+        path_catalog: mariadb_conf
+        format: ini
+        section: mysqld
+        key: local_infile
+      judge:
+        type: equals
+        value: "0"
+        treat_empty_as: fail
+      remediation: "在 [mysqld] 设置 local_infile=0，防止 LOAD DATA LOCAL 注入。"
+      reference: "CIS MariaDB Benchmark"
+      timeout: 10
+
+    - id: MARIADB-SKIP-012
+      category: 数据库安全
+      subsystem: MariaDB
+      name: 禁用 skip-grant-tables
+      severity: high
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -rihE "^\s*skip-grant-tables" /etc/my.cnf /etc/mysql/my.cnf /etc/mysql/mariadb.conf.d/*.cnf $MARIADB_HOME/my.cnf 2>/dev/null | grep -vE '^#' | head -1
+      judge:
+        type: regex_absent
+        value: "(?i)skip-grant-tables"
+        treat_empty_as: pass
+      remediation: "确保配置文件中不存在 skip-grant-tables，否则任何人均可无密码登录。"
+      reference: "CIS MariaDB Benchmark"
+      timeout: 10

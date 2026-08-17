@@ -1,0 +1,79 @@
+catalog:
+  id: mw_nginx
+  platform: linux
+  version: "1.0.0"
+  description: "Nginx(Linux) 中间件安全基线（来自中间件安全核查项笔记，去重后 4 项）"
+  items:
+    - id: NGINX-USER-001
+      category: 中间件安全
+      subsystem: Nginx
+      name: 设置启动 nginx 的账号(非 root)
+      severity: high
+      check_type: auto
+      method:
+        type: config_file
+        path_catalog: nginx_conf
+        format: conf
+        key: user
+      judge:
+        type: not_equals
+        value: "root"
+        treat_empty_as: pass
+      remediation: "在 nginx.conf 设置 user nginx; 并创建 nginx 用户/组"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: NGINX-LOG-002
+      category: 中间件安全
+      subsystem: Nginx
+      name: 日志安全配置(日志文件权限<=644)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          bad=0; for f in $NGINX_HOME/logs/*.log /var/log/nginx/*.log; do [ -f "$f" ] && p=$(stat -c '%a' "$f" 2>/dev/null); [ -n "$p" ] && [ "$p" -gt 644 ] && bad=1; done; [ "$bad" -eq 0 ] && echo OK || echo FAIL
+      judge:
+        type: equals
+        value: "OK"
+        treat_empty_as: pass
+      remediation: "chmod 644 日志文件，避免日志权限过高"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: NGINX-STATUS-003
+      category: 中间件安全
+      subsystem: Nginx
+      name: Nginx 状态目录访问验证
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -A3 "location /status" $NGINX_HOME/conf/nginx.conf /etc/nginx/nginx.conf 2>/dev/null | grep -c "auth_basic_user_file"
+      judge:
+        type: numeric_geq
+        value: 1
+        treat_empty_as: pass
+      remediation: "为 /status 配置 auth_basic_user_file 并设置访问密码；若未启用状态服务则可合规"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: NGINX-TOKEN-004
+      category: 中间件安全
+      subsystem: Nginx
+      name: 防止泄露敏感信息(server_tokens off)
+      severity: medium
+      check_type: auto
+      method:
+        type: config_file
+        path_catalog: nginx_conf
+        format: conf
+        key: server_tokens
+      judge:
+        type: equals
+        value: "off"
+        treat_empty_as: fail
+      remediation: "在 http 模块设置 server_tokens off; 并重启 Nginx"
+      reference: "等保2.0 8.1.4"
+      timeout: 10

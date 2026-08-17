@@ -1,0 +1,160 @@
+catalog:
+  id: db_mongodb
+  platform: linux
+  version: "1.0.0"
+  description: "MongoDB(Linux) 数据库安全基线（补全空白章节，基于 CIS MongoDB Benchmark）"
+  items:
+    - id: MONGO-BIND-001
+      category: 数据库安全
+      subsystem: MongoDB
+      name: 禁止以 root 启动 MongoDB
+      severity: high
+      check_type: auto
+      method:
+        type: process
+        name: mongod
+      judge:
+        type: regex_present
+        value: '(?i)running:(?!root)'
+        treat_empty_as: fail
+      remediation: "创建专用 mongod 用户并以该用户启动 MongoDB。"
+      reference: "CIS MongoDB Benchmark"
+      timeout: 10
+
+    - id: MONGO-IP-002
+      category: 数据库安全
+      subsystem: MongoDB
+      name: 限制可访问 IP(bindIp)
+      severity: high
+      check_type: auto
+      method:
+        type: config_file
+        path_catalog: mongodb_conf
+        format: yaml
+        section: net
+        key: bindIp
+      judge:
+        type: regex_absent
+        value: "0.0.0.0"
+        treat_empty_as: fail
+      remediation: "mongod.conf 的 net.bindIp 设置为 127.0.0.1 或指定内网 IP，禁止 0.0.0.0。"
+      reference: "CIS MongoDB Benchmark"
+      timeout: 10
+
+    - id: MONGO-AUTH-003
+      category: 数据库安全
+      subsystem: MongoDB
+      name: 开启登录认证(authorization)
+      severity: high
+      check_type: auto
+      method:
+        type: config_file
+        path_catalog: mongodb_conf
+        format: yaml
+        section: security
+        key: authorization
+      judge:
+        type: equals
+        value: "enabled"
+        treat_empty_as: fail
+      remediation: "mongod.conf 的 security.authorization 设为 enabled，并创建管理员账号。"
+      reference: "CIS MongoDB Benchmark"
+      timeout: 10
+
+    - id: MONGO-HTTP-004
+      category: 数据库安全
+      subsystem: MongoDB
+      name: 关闭 MongoDB HTTP 状态接口
+      severity: medium
+      check_type: auto
+      method:
+        type: config_file
+        path_catalog: mongodb_conf
+        format: yaml
+        section: net
+        key: http.enabled
+      judge:
+        type: equals
+        value: "false"
+        treat_empty_as: fail
+      remediation: "mongod.conf 设置 net.http.enabled: false，关闭 REST/HTTP 接口。"
+      reference: "CIS MongoDB Benchmark"
+      timeout: 10
+
+    - id: MONGO-PORT-005
+      category: 数据库安全
+      subsystem: MongoDB
+      name: 修改默认端口(非27017)
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "net.port 改为非默认 27017 有助于降低被扫描概率。需人工核查 mongod.conf。"
+      remediation: "mongod.conf 的 net.port 设置为非 27017 的端口。"
+      reference: "CIS MongoDB Benchmark"
+      timeout: 10
+
+    - id: MONGO-PERM-006
+      category: 数据库安全
+      subsystem: MongoDB
+      name: 配置文件与 keyfile 权限
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "mongod.conf 与集群 keyfile 权限应仅限 mongod 属主(配置文件600、keyfile 400)。需人工核查 chmod/chown。"
+      remediation: "chmod 600 /etc/mongod.conf; chmod 400 <keyfile>"
+      reference: "CIS MongoDB Benchmark"
+      timeout: 10
+
+    - id: MONGO-TLS-007
+      category: 数据库安全
+      subsystem: MongoDB
+      name: 启用 TLS 传输加密
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "生产环境应配置 net.tls 启用加密传输并禁用明文端口。需人工核查 mongod.conf 的 net.tls 段。"
+      remediation: "mongod.conf 的 net.tls.mode 设为 requireTLS 并配置证书。"
+      reference: "CIS MongoDB Benchmark"
+      timeout: 10
+
+    - id: MONGO-ROLE-008
+      category: 数据库安全
+      subsystem: MongoDB
+      name: 最小权限/角色管理
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "应使用自定义角色按最小权限授权，避免使用内置 root/__system 角色给业务账号。需以管理员身份核查角色授权。"
+      remediation: "通过 db.createRole 创建最小权限角色并授予业务账号，回收多余权限。"
+      reference: "CIS MongoDB Benchmark"
+      timeout: 10
+
+    - id: MONGO-ANON-009
+      category: 数据库安全
+      subsystem: MongoDB
+      name: 无匿名/空口令账号
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "所有数据库用户均应设置强口令，不存在空口令或匿名账号。需以管理员身份核查 usersInfo。"
+      remediation: "为所有用户设置强口令；删除/锁定无用账号。"
+      reference: "CIS MongoDB Benchmark"
+      timeout: 10
+
+    - id: MONGO-LOG-010
+      category: 数据库安全
+      subsystem: MongoDB
+      name: 配置日志转存路径
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "systemLog.destination 与 path 应配置为独立日志目录并纳入日志轮转。需人工核查 mongod.conf 的 systemLog 段。"
+      remediation: "mongod.conf 的 systemLog.destination=file、path 指向独立日志目录，并配置 logrotate。"
+      reference: "CIS MongoDB Benchmark"
+      timeout: 10

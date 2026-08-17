@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>卡密生成机</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif; background: #f3f5f9; color: #303133; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 22px; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .sub { color: #8a94a6; font-size: 12px; margin-bottom: 18px; }
+    .card { background: #fff; border: 1px solid #e3e8f0; border-radius: 10px; padding: 16px 18px; margin-bottom: 16px; }
+    label { display: block; font-size: 13px; margin: 10px 0 4px; color: #555; }
+    input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid #d3e1ed; border-radius: 7px; font-size: 13px; }
+    textarea { height: 150px; resize: vertical; font-family: Consolas, monospace; }
+    .row { display: flex; gap: 12px; }
+    .row > div { flex: 1; }
+    button { margin-top: 14px; padding: 9px 18px; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; }
+    .btn-primary { background: #1f6feb; color: #fff; }
+    .btn-ghost { background: #eef2f8; color: #303133; }
+    .msg { margin-top: 12px; font-size: 13px; padding: 10px 12px; border-radius: 8px; }
+    .ok { background: #e8f6ec; color: #1a7f37; }
+    .err { background: #fdecea; color: #c0341d; }
+    .info { background: #eaf2ff; color: #1f6feb; }
+    .hint { font-size: 12px; color: #8a94a6; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>卡密生成机</h1>
+    <div class="sub">安全基线核查系统 · 离线卡密签发工具（与网站共用同一密钥，生成的卡密可在网页直接激活）</div>
+
+    <div class="card">
+      <div class="row">
+        <div>
+          <label>生成数量</label>
+          <input id="count" type="number" min="1" max="100000" value="10" />
+        </div>
+        <div>
+          <label>有效期至（留空=永久）</label>
+          <input id="exp" type="text" placeholder="例如 2099-12-31" />
+        </div>
+        <div>
+          <label>功能范围</label>
+          <select id="feat">
+            <option value="all">全部(all)</option>
+            <option value="db">仅数据库(db)</option>
+            <option value="mw">仅中间件(mw)</option>
+            <option value="host">仅主机(host)</option>
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <button class="btn-primary" onclick="gen()">生成卡密</button>
+        <button class="btn-ghost" onclick="clearOut()">清空</button>
+      </div>
+      <div id="genMsg" class="msg info" style="display:none"></div>
+      <label style="margin-top:14px">生成的卡密（每行一个，可直接复制或导出）</label>
+      <textarea id="out" readonly placeholder="点击「生成卡密」后在此显示"></textarea>
+      <button class="btn-ghost" onclick="saveFile()">导出为文件…</button>
+    </div>
+
+    <div class="card">
+      <label>校验卡密</label>
+      <input id="verifyIn" type="text" placeholder="粘贴卡密进行校验" />
+      <button class="btn-primary" onclick="verify()">校验</button>
+      <div id="verifyMsg" class="msg info" style="display:none"></div>
+      <div class="hint">提示：卡密为离线签名令牌，不绑定机器，可跨服务器使用。密钥须与网站一致。</div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

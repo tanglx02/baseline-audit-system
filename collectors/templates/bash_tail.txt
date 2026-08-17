@@ -1,0 +1,41 @@
+# ---------------------------------------------------------------------------
+# 主机元数据 + 汇总 + 输出
+# ---------------------------------------------------------------------------
+HOSTNAME=$(hostname 2>/dev/null || echo unknown)
+OSVER=$( (cat /etc/os-release 2>/dev/null | awk -F= '/^PRETTY_NAME=/{v=$2; gsub(/"/,"",v); print v; exit}') )
+KERNEL=$(uname -r 2>/dev/null || echo "")
+COLLECTED=$(date -Iseconds 2>/dev/null || date "+%Y-%m-%dT%H:%M:%S")
+CATALOG_ID="__CATALOG_ID__"
+CATALOG_VER="__CATALOG_VER__"
+VERSIONS=__VERSIONS_LIT__
+
+TOTAL=$((PASSED+FAILED+MANUAL+UNKNOWN))
+DENOM=$((PASSED+FAILED))
+if [ "$DENOM" -gt 0 ]; then
+  COMPL=$(awk -v p="$PASSED" -v d="$DENOM" 'BEGIN{ printf "%.4f", p/d }')
+else
+  COMPL="null"
+fi
+
+DOC=$(printf '{\n  "schema_version": 1,\n  "generator": "baseline-collector-bash",\n  "host": {"hostname": "%s", "os": "Linux", "os_version": "%s", "kernel": "%s", "platform": "linux", "collector_version": "%s", "collected_at": "%s"},\n  "catalog": {"id": "%s", "version": "%s", "all_versions": %s},\n  "summary": {"total": %s, "passed": %s, "failed": %s, "manual": %s, "unknown": %s, "compliance_rate": %s},\n  "results": [%s]\n}' \
+  "$(printf '%s' "$HOSTNAME" | _json_escape)" \
+  "$(printf '%s' "$OSVER" | _json_escape)" \
+  "$(printf '%s' "$KERNEL" | _json_escape)" \
+  "$COLLECTOR_VERSION" "$COLLECTED" \
+  "$CATALOG_ID" "$CATALOG_VER" "$VERSIONS" \
+  "$TOTAL" "$PASSED" "$FAILED" "$MANUAL" "$UNKNOWN" "$COMPL" \
+  "$RESULTS")
+
+OUT_DIR="."
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o) shift; if [ $# -gt 0 ]; then OUT_DIR="$1"; fi;;
+  esac
+  shift
+done
+mkdir -p "$OUT_DIR"
+TS=$(date +%Y%m%d_%H%M%S)
+OUT="$OUT_DIR/results_${HOSTNAME}_${TS}.json"
+printf '%s\n' "$DOC" > "$OUT"
+echo "基线结果已写入: $OUT" >&2
+cat "$OUT"

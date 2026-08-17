@@ -1,0 +1,251 @@
+catalog:
+  id: mw_iis
+  platform: windows
+  version: "1.0.0"
+  description: "IIS(Windows) 中间件安全基线（来自中间件安全核查项笔记，共 18 项）"
+  items:
+    - id: IIS-LOGPATH-001
+      category: 中间件安全
+      subsystem: IIS
+      name: 更改 Web 日志默认存放路径
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "IIS管理器→站点→日志，已修改默认日志目录位置则合规。需人工核查。"
+      remediation: "将日志目录位置更改为独立分区。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: IIS-AUDIT-002
+      category: 中间件安全
+      subsystem: IIS
+      name: 配置审核策略(成功+失败)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "本地安全策略→审核策略：策略更改、登录事件、对象访问、进程跟踪、目录服务访问、特权使用、系统事件、账户登录事件、账户管理均审核成功与失败则合规。需人工核查。"
+      remediation: "将上述 9 类审核策略设为审核成功和失败。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: IIS-FTP-003
+      category: 中间件安全
+      subsystem: IIS
+      name: 卸载不必要的 FTP/SMTP 服务组件
+      severity: medium
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "(Get-Service -Name MSFTPSVC -ErrorAction SilentlyContinue).Status + ',' + (Get-Service -Name SMTPSVC -ErrorAction SilentlyContinue).Status"
+      judge:
+        type: regex_absent
+        value: "Running"
+        treat_empty_as: pass
+      remediation: "服务器管理器→Web服务器(IIS)角色，移除 FTP 与 SMTP 角色服务。"
+      reference: "等保2.0 8.1.4"
+      timeout: 20
+
+    - id: IIS-ASPNET-004
+      category: 中间件安全
+      subsystem: IIS
+      name: 管理 ASP.NET 功能扩展
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "业务不需要 ASP 支持时应禁用 ASP.NET Web 服务扩展。需人工核查角色服务。"
+      remediation: "移除或禁用 ASP.NET 服务扩展（如业务无需）。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: IIS-LOG-005
+      category: 中间件安全
+      subsystem: IIS
+      name: 启用日志功能(IIS格式)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "站点→日志，已启用日志记录且格式为 IIS 则合规。需人工核查。"
+      remediation: "启用日志功能并将日志格式设为 IIS。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: IIS-PATH-006
+      category: 中间件安全
+      subsystem: IIS
+      name: 更改默认安装/物理路径
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "站点基本设置中物理路径非默认 %SystemDrive%\\inetpub\\wwwroot 则合规。需人工核查。"
+      remediation: "将站点物理路径设置到非系统盘自定义目录。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: IIS-DEF-007
+      category: 中间件安全
+      subsystem: IIS
+      name: 删除危险实例/示例目录
+      severity: high
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "@('C:\\inetpub\\scripts','C:\\inetpub\\scripts\\IISSamples','C:\\inetpub\\wwwroot\\IISSamples','C:\\inetpub\\wwwroot\\IISHelp','C:\\inetpub\\wwwroot\\printers') | ForEach-Object { if (Test-Path $_) { 'FOUND:' + $_ } }"
+      judge:
+        type: regex_absent
+        value: "FOUND:"
+        treat_empty_as: pass
+      remediation: "删除 inetpub\\scripts、IISSamples、IISHelp、Printers 等示例/危险目录。"
+      reference: "等保2.0 8.1.4"
+      timeout: 20
+
+    - id: IIS-MAP-008
+      category: 中间件安全
+      subsystem: IIS
+      name: 删除不必要脚本映射(IIS6)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "主目录→配置→映射，不存在 .htr/.idc/.stm/.shtm/.shtml/.printer/.htw/.ida/.idq 映射则合规。需人工核查。"
+      remediation: "删除上述危险脚本映射扩展名。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: IIS-FTP6-009
+      category: 中间件安全
+      subsystem: IIS
+      name: 卸载 FTP/SMTP 组件(IIS6)
+      severity: medium
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "(Get-Service -Name MSFTPSVC -ErrorAction SilentlyContinue).Status + ',' + (Get-Service -Name SMTPSVC -ErrorAction SilentlyContinue).Status"
+      judge:
+        type: regex_absent
+        value: "Running"
+        treat_empty_as: pass
+      remediation: "添加/删除 Windows 组件→应用程序服务器→IIS，移除 FTP 与 SMTP。"
+      reference: "等保2.0 8.1.4"
+      timeout: 20
+
+    - id: IIS-PATH6-010
+      category: 中间件安全
+      subsystem: IIS
+      name: 更改默认安装路径(IIS6)
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "站点属性→主目录→本地路径非 %SystemDrive%\\Inetpub\\wwwroot 则合规。需人工核查。"
+      remediation: "将主目录设置到非系统盘自定义位置。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: IIS-LOGP6-011
+      category: 中间件安全
+      subsystem: IIS
+      name: 更改 Web 日志默认路径(IIS6)
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "站点属性→网站→日志属性，日志目录非 C:\\WINDOWS\\system32\\LogFiles 则合规。需人工核查。"
+      remediation: "修改默认日志文件路径到独立分区。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: IIS-LOG6-012
+      category: 中间件安全
+      subsystem: IIS
+      name: 启用日志功能(IIS6)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "站点属性，已启用日志记录且采用 IIS 日志格式则合规。需人工核查。"
+      remediation: "启用日志记录并采用 Microsoft IIS 日志文件格式。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: IIS-ASPNET6-013
+      category: 中间件安全
+      subsystem: IIS
+      name: 管理 ASP.NET 功能扩展(IIS6)
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "Web 服务扩展中已禁用 ASP.NET（如业务无需）则合规。需人工核查。"
+      remediation: "禁用 ASP.NET Web 服务扩展。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: IIS-MAP6-014
+      category: 中间件安全
+      subsystem: IIS
+      name: 删除不必要脚本映射(IIS7+)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "处理程序映射中不存在 htr/idc/stm/shtm/shtml/printer/htw/ida/idq 映射则合规。需人工核查。"
+      remediation: "删除上述危险处理程序映射。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: IIS-TOUT6-015
+      category: 中间件安全
+      subsystem: IIS
+      name: 连接超时设置(IIS6,120秒)
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "站点属性→网站，超时时间为 120 秒则合规。需人工核查。"
+      remediation: "将连接超时设为 120 秒。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: IIS-TOUT-016
+      category: 中间件安全
+      subsystem: IIS
+      name: 连接超时设置(IIS7+,120秒)
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "站点→高级设置→限制→连接超时=120秒则合规。需人工核查。"
+      remediation: "将连接超时设为 120 秒。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: IIS-LOGD6-017
+      category: 中间件安全
+      subsystem: IIS
+      name: 日志文件权限及审计字段(IIS6)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "日志属性→高级，记录日期、时间和扩展属性则合规。需人工核查。"
+      remediation: "勾选记录日期、时间和扩展属性。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: IIS-MAXCONN-018
+      category: 中间件安全
+      subsystem: IIS
+      name: 最大并发连接数(1000)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "站点→高级设置→限制→最大并发连接数=1000 则合规。需人工核查。"
+      remediation: "将最大并发连接数设为 1000。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15

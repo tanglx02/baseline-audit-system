@@ -1,0 +1,192 @@
+catalog:
+  id: db_mysql_linux
+  platform: linux
+  version: "1.0.0"
+  description: "MySQL(Linux) 数据库安全基线（来自数据库安全核查项笔记）"
+  items:
+    - id: MYSQL-LOG-001
+      category: 数据库安全
+      subsystem: MySQL
+      name: 配置日志功能
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -rihE "log_error|log_bin|general_log" /etc/my.cnf /etc/mysql/my.cnf $MYSQL_HOME/my.cnf 2>/dev/null | grep -vE '^#' | head -5 | tr '\n' ' '
+      judge:
+        type: regex_present
+        value: "(?=.*log_error)(?=.*log_bin|.*general_log)"
+        treat_empty_as: fail
+      remediation: "在 /etc/my.cnf [mysqld] 增加 general_log=on、log_bin=/var/lib/mysql/mysql-bin、log_error=/var/lib/mysql/error.log 并重启"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MYSQL-ACCT-002
+      category: 数据库安全
+      subsystem: MySQL
+      name: 删除无关或匿名帐号
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "以管理员登录后执行 SELECT count(*) FROM mysql.user WHERE user=''; 结果为 0 则合规。需连库确认。"
+      remediation: "对匿名/无关账号执行 DROP USER '<user>';"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MYSQL-ACCT-003
+      category: 数据库安全
+      subsystem: MySQL
+      name: 更改 root 用户名称
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "执行 SELECT count(*) FROM mysql.user WHERE user='root'; 为 0 则合规。需连库确认。"
+      remediation: "UPDATE mysql.user SET user='新用户名' WHERE user='root'; FLUSH PRIVILEGES;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MYSQL-CONN-004
+      category: 数据库安全
+      subsystem: MySQL
+      name: 设置最大连接数
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          f="/etc/my.cnf /etc/mysql/my.cnf $MYSQL_HOME/my.cnf"; mc=$(grep -rihE "^\s*max_connections" $f 2>/dev/null | grep -oE "[0-9]+" | tail -1); me=$(grep -rihE "max_connect_errors" $f 2>/dev/null | grep -oE "[0-9]+" | tail -1); mu=$(grep -rihE "max_user_connections" $f 2>/dev/null | grep -oE "[0-9]+" | tail -1); if [ -n "$mc" ] && [ "$mc" -le 1000 ] && { [ -z "$me" ] || [ "$me" -le 10 ]; } && { [ -z "$mu" ] || [ "$mu" -le 100 ]; }; then echo OK; else echo FAIL; fi
+      judge:
+        type: equals
+        value: "OK"
+        treat_empty_as: fail
+      remediation: "[mysqld] 设置 max_connections=1000、max_connect_errors=5、max_user_connections=50"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MYSQL-PWD-005
+      category: 数据库安全
+      subsystem: MySQL
+      name: 避免弱口令/空密码账号
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "执行 SELECT * FROM mysql.user WHERE authentication_string='' OR authentication_string IS NULL; 无结果则合规。需连库确认。"
+      remediation: "为所有空密码/默认密码账号设置强口令：ALTER USER '<user>' IDENTIFIED BY '强口令';"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MYSQL-PROC-006
+      category: 数据库安全
+      subsystem: MySQL
+      name: 禁止 MySQL 进程以管理员(root)权限运行
+      severity: high
+      check_type: auto
+      method:
+        type: process
+        name: mysqld
+      judge:
+        type: regex_absent
+        value: "running:root"
+        treat_empty_as: pass
+      remediation: "在 /etc/my.cnf [mysqld] 增加 user=mysql 并以 mysql 用户启动"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MYSQL-NET-007
+      category: 数据库安全
+      subsystem: MySQL
+      name: 修改数据库默认端口
+      severity: low
+      check_type: auto
+      method:
+        type: config_file
+        path_catalog: mysql_conf
+        format: ini
+        section: mysqld
+        key: port
+      judge:
+        type: not_equals
+        value: "3306"
+        treat_empty_as: fail
+      remediation: "在 [mysqld] 设置 port=<非3306> 并重启 mysqld"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MYSQL-FILE-008
+      category: 数据库安全
+      subsystem: MySQL
+      name: 文件权限(数据目录属主为 mysql)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "执行 ls -la $InstallHomePath/mysql，数据目录及文件属主/属组应为 mysql 而非 root。属主路径因安装而异，需人工核查。"
+      remediation: "chown -R mysql:mysql $InstallHomePath/mysql"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MYSQL-HIST-009
+      category: 数据库安全
+      subsystem: MySQL
+      name: 命令历史记录保护(.mysql_history)
+      severity: low
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          if [ -L "$HOME/.mysql_history" ]; then readlink "$HOME/.mysql_history"; elif [ -f "$HOME/.mysql_history" ]; then echo "exists"; else echo "none"; fi
+      judge:
+        type: regex_present
+        value: "/dev/null|none"
+        treat_empty_as: pass
+      remediation: "ln -s /dev/null ~/.mysql_history 使历史记录指向空设备"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MYSQL-CONN-010
+      category: 数据库安全
+      subsystem: MySQL
+      name: mysql 连接超时设置(connect_timeout)
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "执行 SHOW VARIABLES LIKE 'connect_timeout'; 值 <=100 则合规。需连库确认。"
+      remediation: "SET GLOBAL connect_timeout=100;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MYSQL-PWD-011
+      category: 数据库安全
+      subsystem: MySQL
+      name: 口令策略(不规律强口令)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "MySQL 不支持自动检查口令复杂度，需管理员确认所有账号均使用 >=8 位、含字母数字符号的不规律强口令。"
+      remediation: "为所有账号设置不规律强口令"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MYSQL-PWD-012
+      category: 数据库安全
+      subsystem: MySQL
+      name: 口令策略符合复杂度要求(validate_password)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          grep -rihE "validate_password" /etc/my.cnf /etc/mysql/my.cnf $MYSQL_HOME/my.cnf 2>/dev/null | grep -vE '^#' | head -3 | tr '\n' ' '
+      judge:
+        type: regex_present
+        value: '(?i)validate_password_policy\s*[= ]\s*(1|MEDIUM|2|STRONG)'
+        treat_empty_as: fail
+      remediation: "在 [mysqld] 增加 plugin-load-add=validate_password.so 并设置 validate_password.policy=MEDIUM"
+      reference: "等保2.0 8.1.4"
+      timeout: 10

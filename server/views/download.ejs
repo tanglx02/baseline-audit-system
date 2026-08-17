@@ -1,0 +1,36 @@
+<%- include('_head', {title:'下载脚本 - 安全基线核查系统'}) %>
+<%- include('_nav', {active:'download'}) %>
+<main class="container">
+  <h1>下载采集脚本</h1>
+  <p class="muted">基线按 <b>四大分类</b> 组织，点开分类即可下载对应脚本。每个数据库 / 中间件 / 主机类型都是<b>独立脚本</b>，零 Python 依赖。</p>
+  <p class="hint">
+    适用说明：<b>Linux主机</b>脚本兼容 RHEL/CentOS/Rocky/Alma、Ubuntu/Debian、SUSE、Alpine 等主流发行版（端口检测自带 <code>/proc/net/tcp</code> 回退，无需 <code>ss/netstat</code>）；
+    <b>Windows主机</b>脚本兼容 Windows 7+/Server 2008R2+（CIM/WMI、netstat 自动回退）。
+    把脚本拷贝到目标服务器执行，产出 <code>results_*.json</code> 后回到「上传报告」即可。
+  </p>
+
+  <%
+    var ORDER = ['Windows主机','Linux主机','中间件','数据库'];
+    var groups = {};
+    scripts.forEach(function(s){ (groups[s.category] = groups[s.category] || []).push(s); });
+    ORDER.forEach(function(cat){
+      var list = groups[cat]; if(!list || !list.length) return;
+  %>
+  <section class="cat-block">
+    <h2 class="cat-title"><%= cat %> <span class="badge-count"><%= list.length %> 个脚本</span></h2>
+    <div class="grid-cards">
+    <% list.forEach(function(s){ %>
+      <div class="panel">
+        <h3><%= s.label %> <span class="badge-plat <%= s.platform %>"><%= s.platform %></span></h3>
+        <p class="muted"><span class="chip"><%= s.category %></span> <span class="chip"><%= s.items %> 项</span></p>
+        <p class="mono"><%= s.file %></p>
+        <a class="btn btn-primary btn-sm" href="/download/<%= s.file %>">下载</a>
+      </div>
+    <% }); %>
+    </div>
+  </section>
+  <% }); %>
+
+  <p class="hint">Windows 执行需 <code>powershell -ExecutionPolicy Bypass -File xxx.ps1</code>；Linux 执行需 <code>bash xxx.sh</code>。</p>
+</main>
+<%- include('_foot') %>

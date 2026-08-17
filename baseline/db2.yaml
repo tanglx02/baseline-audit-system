@@ -1,0 +1,185 @@
+catalog:
+  id: db2
+  platform: linux
+  version: "1.0.0"
+  description: "IBM DB2(Linux) 数据库安全基线（补全空白章节，参考 CIS IBM DB2 Benchmark）"
+  items:
+    - id: DB2-OWNER-001
+      category: 数据库安全
+      subsystem: DB2
+      name: 实例以专用 db2inst1 低权用户运行
+      severity: high
+      check_type: auto
+      method:
+        type: process
+        name: db2sysc
+      judge:
+        type: regex_absent
+        value: "running:root"
+        treat_empty_as: fail
+      remediation: "以专用 db2inst1 实例所有者用户启动 DB2 实例，禁止 root 运行。"
+      reference: "CIS IBM DB2 Benchmark"
+      timeout: 10
+
+    - id: DB2-AUDIT-002
+      category: 数据库安全
+      subsystem: DB2
+      name: 启用审计(audit_bufsz/audit 策略)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "db2 get dbm cfg | grep -i audit 确认 AUDIT_BUF_SZ 已配置；AUDIT 策略已创建并生效。需连库/实例确认。"
+      remediation: "CREATE AUDIT POLICY ...; AUDIT <obj> USING POLICY <p>;"
+      reference: "CIS IBM DB2 Benchmark"
+      timeout: 10
+
+    - id: DB2-COMM-003
+      category: 数据库安全
+      subsystem: DB2
+      name: 限制通信协议(DB2COMM)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          db2set DB2COMM 2>/dev/null || echo "unset"
+      judge:
+        type: regex_present
+        value: "TCPIP"
+        treat_empty_as: fail
+      remediation: "db2set DB2COMM=TCPIP 仅开启必要协议，关闭未使用的通信方式。"
+      reference: "CIS IBM DB2 Benchmark"
+      timeout: 10
+
+    - id: DB2-DIAG-004
+      category: 数据库安全
+      subsystem: DB2
+      name: 诊断日志级别与权限
+      severity: low
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          db2 get dbm cfg 2>/dev/null | grep -i "diaglevel" | awk -F= '{print $2}' | tr -d ' '
+      judge:
+        type: numeric_geq
+        value: 3
+        treat_empty_as: fail
+      remediation: "db2 update dbm cfg using DIAGLEVEL 3，确保诊断信息充足；日志目录权限收紧。"
+      reference: "CIS IBM DB2 Benchmark"
+      timeout: 10
+
+    - id: DB2-AUTH-005
+      category: 数据库安全
+      subsystem: DB2
+      name: 启用 SYSADM 组限制
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "db2 get dbm cfg 中 SYSADM_GROUP 应设为专用管理组，且仅必要成员。需人工核查实例配置。"
+      remediation: "db2 update dbm cfg using SYSADM_GROUP <专用组>; 缩减组内成员。"
+      reference: "CIS IBM DB2 Benchmark"
+      timeout: 10
+
+    - id: DB2-PWD-006
+      category: 数据库安全
+      subsystem: DB2
+      name: 口令复杂度与生存期
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "通过 db2 安全插件或操作系统口令策略确保账号口令 >=8 位且定期更换。需人工核查。"
+      remediation: "配置 DB2 口令复杂度插件并设置口令过期策略。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: DB2-ACCT-007
+      category: 数据库安全
+      subsystem: DB2
+      name: 删除/锁定默认与无用账号
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "SELECT * FROM syscat.dbauth 核查授权；删除或锁定示例/无用账号。需连库确认。"
+      remediation: "REVOKE 多余授权；锁定/删除无用用户。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: DB2-ENC-008
+      category: 数据库安全
+      subsystem: DB2
+      name: 启用数据加密(原生/列加密)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "敏感表应使用列级加密或表空间加密；启用后密钥应安全保管。需人工核查加密配置。"
+      remediation: "使用 CREATE TABLE ... ENCRYPT 或配置原生加密表空间。"
+      reference: "CIS IBM DB2 Benchmark"
+      timeout: 10
+
+    - id: DB2-BACKUP-009
+      category: 数据库安全
+      subsystem: DB2
+      name: 备份文件权限与加密
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "备份目录与镜像应仅对 db2 实例用户与管理员可访问，建议加密备份。需人工核查权限。"
+      remediation: "通过文件系统 ACL 与加密保护备份文件。"
+      reference: "CIS IBM DB2 Benchmark"
+      timeout: 10
+
+    - id: DB2-TRUST-010
+      category: 数据库安全
+      subsystem: DB2
+      name: 关闭信任客户端上下文(TRUST_ALLCLNTS)
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          db2 get dbm cfg 2>/dev/null | grep -i "trust_allclnts" | awk -F= '{print $2}' | tr -d ' '
+      judge:
+        type: not_equals
+        value: "YES"
+        treat_empty_as: fail
+      remediation: "db2 update dbm cfg using TRUST_ALLCLNTS NO，限制可信客户端范围。"
+      reference: "CIS IBM DB2 Benchmark"
+      timeout: 10
+
+    - id: DB2-FILE-011
+      category: 数据库安全
+      subsystem: DB2
+      name: 实例与数据目录权限
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "DB2 安装目录、实例目录与数据库目录权限应仅限 db2 实例用户与管理员。需人工核查 chmod/chown。"
+      remediation: "chown -R db2inst1:db2iadm1 $HOME; chmod 750 关键目录"
+      reference: "CIS IBM DB2 Benchmark"
+      timeout: 10
+
+    - id: DB2-PATCH-012
+      category: 数据库安全
+      subsystem: DB2
+      name: 安装最新 Fix Pack
+      severity: medium
+      check_type: auto
+      method:
+        type: shell
+        actual_cmd: |-
+          db2level 2>/dev/null | grep -i "Fix Pack" | head -1 || echo "unknown"
+      judge:
+        type: regex_present
+        value: "Fix Pack"
+        treat_empty_as: fail
+      remediation: "升级至最新 DB2 Fix Pack 以修复已知漏洞。"
+      reference: "CIS IBM DB2 Benchmark"
+      timeout: 10

@@ -1,0 +1,23 @@
+{
+  "name": "baseline-audit-system",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "安全基线核查系统（Node.js 重写版）：目标机纯 bash/PowerShell 采集，Web 平台汇总报告，内嵌授权后台。",
+  "scripts": {
+    "start": "node server/server.js",
+    "build": "node collectors/build_collectors.js",
+    "dev": "node --watch server/server.js"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "ejs": "^6.0.1",
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "js-yaml": "^5.3.0",
+    "multer": "^2.2.0"
+  }
+}

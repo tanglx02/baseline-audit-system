@@ -1,0 +1,644 @@
+catalog:
+  id: host_windows
+  platform: windows
+  version: "1.0.0"
+  description: "Windows 主机安全基线（来自主机安全核查项笔记，共 43 项）"
+  items:
+    - id: WIN-PWD-001
+      category: 主机安全
+      subsystem: 口令策略
+      name: 密码策略（复杂性/长度/生存期）
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "本地安全策略→帐户策略→密码策略：密码必须符合复杂性要求=已启用、长度最小值=8、最长使用期限=180、最短=1、强制历史=5、禁用可还原加密存储。需人工核查 secedit 导出。"
+      remediation: "在本地安全策略中启用密码复杂性、设长度最小值8、最长180天、最短1天、强制历史5、禁用可还原加密存储。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-PWD-002
+      category: 主机安全
+      subsystem: 口令策略
+      name: 账户锁定策略
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "本地安全策略→帐户策略→帐户锁定策略：锁定阈值=5次、锁定时间=5分钟、复位计数器=3分钟。需人工核查。"
+      remediation: "设置帐户锁定阈值为5次无效登录、锁定时间5分钟、复位计数器3分钟。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-RIGHT-003
+      category: 主机安全
+      subsystem: 用户权限
+      name: 用户权限分配（远程关机/关闭系统/取得所有权）
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "本地安全策略→本地策略→用户权限分配：从远程系统强制关机、关闭系统、取得文件或其他对象的所有权仅保留 Administrators。需人工核查。"
+      remediation: "将上述用户权限仅保留 Administrators 组。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-ACC-004
+      category: 主机安全
+      subsystem: 账号管理
+      name: 禁用 Guest 来宾帐户
+      severity: high
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "Try { (Get-LocalUser -Name 'Guest' -ErrorAction Stop).Enabled } Catch { 'NOTFOUND' }"
+      judge:
+        type: not_equals
+        value: "True"
+        treat_empty_as: fail
+      remediation: "计算机管理→本地用户和组→Guest 属性→禁用帐户。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-ACC-005
+      category: 主机安全
+      subsystem: 账号管理
+      name: 修改管理员帐号名称
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "Administrators 组中不存在名为 Administrator 的帐号则合规。需人工核查并更名。"
+      remediation: "将 Administrator 重命名为非默认名称。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-AUDIT-006
+      category: 主机安全
+      subsystem: 安全审计
+      name: 审核策略（9类事件成功+失败）
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "本地安全策略→本地策略→审核策略：帐户登录、帐户管理、目录服务访问、登录、对象访问、策略更改、特权使用、进程追踪、系统事件均审核成功与失败。需人工核查。"
+      remediation: "将 9 类审核策略设置为审核成功和失败。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-SVC-007
+      category: 主机安全
+      subsystem: 服务
+      name: 关闭不必要的服务（Messenger/Alerter/Telnet/Remote Registry 等）
+      severity: medium
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "('Messenger','Alerter','Telnet','RemoteRegistry','ClipSrv','Browser','TlntSvr' | ForEach-Object { (Get-Service -Name $_ -ErrorAction SilentlyContinue).Status }) -join ','"
+      judge:
+        type: regex_absent
+        value: "Running"
+        treat_empty_as: pass
+      remediation: "将 Messenger、Alerter、Telnet、Remote Registry 等服务设为禁用并停止。"
+      reference: "等保2.0 8.1.4"
+      timeout: 20
+
+    - id: WIN-SVC-008
+      category: 主机安全
+      subsystem: 服务
+      name: 关闭不必要的服务（SMTP/SNMP/Web 发布）
+      severity: low
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "('SMTPSVC','SNMP','W3SVC' | ForEach-Object { (Get-Service -Name $_ -ErrorAction SilentlyContinue).Status }) -join ','"
+      judge:
+        type: regex_absent
+        value: "Running"
+        treat_empty_as: pass
+      remediation: "将 SMTP、SNMP Service、World Wide Web Publishing 等不需要的服务设为禁用并停止。"
+      reference: "等保2.0 8.1.4"
+      timeout: 20
+
+    - id: WIN-SNMP-009
+      category: 主机安全
+      subsystem: 服务
+      name: 加固 SNMP 团体名
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "SNMP Service 的 community strings 不为 public 且长度≥8。需人工核查服务属性安全选项卡。"
+      remediation: "修改 SNMP 团体名为高强度字符串（非 public、长度≥8）。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-FS-010
+      category: 主机安全
+      subsystem: 文件系统
+      name: 使用 NTFS 文件系统
+      severity: medium
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "Try { (Get-Volume -DriveLetter C -ErrorAction Stop).FileSystemType } Catch { 'UNKNOWN' }"
+      judge:
+        type: equals
+        value: "NTFS"
+        treat_empty_as: fail
+      remediation: "使用 convert C: /FS:NTFS 将系统盘转换为 NTFS。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-SCREEN-011
+      category: 主机安全
+      subsystem: 会话安全
+      name: 屏幕保护（5分钟+恢复登录）
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "启用屏幕保护、等待时间5分钟、恢复时显示登录屏幕。需人工核查。"
+      remediation: "控制面板→个性化→屏幕保护程序，启用并设置等待5分钟、勾选恢复时显示登录屏幕。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-SHARE-012
+      category: 主机安全
+      subsystem: 文件共享
+      name: 文件共享权限不为 everyone
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "共享文件夹权限未授予 everyone。需人工核查计算机管理→共享文件夹。"
+      remediation: "将共享权限仅授予指定账户，移除 everyone。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-AV-013
+      category: 主机安全
+      subsystem: 防病毒
+      name: 安装防病毒软件
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "已安装并及时更新防病毒软件。需人工核查控制面板→程序。"
+      remediation: "安装防病毒软件并保持病毒库更新。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-FW-014
+      category: 主机安全
+      subsystem: 防火墙
+      name: 启用 Windows 防火墙
+      severity: high
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "(Get-NetFirewallProfile -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Enabled) -join ','"
+      judge:
+        type: regex_present
+        value: "True"
+        treat_empty_as: fail
+      remediation: "控制面板→Windows Defender 防火墙，启用所有配置文件的防火墙。"
+      reference: "等保2.0 8.1.4"
+      timeout: 20
+
+    - id: WIN-SHARE-015
+      category: 主机安全
+      subsystem: 文件共享
+      name: 删除默认共享（AutoShareServer/WKS=0）
+      severity: high
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "Try { $p=Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\lanmanserver\\parameters' -ErrorAction Stop; \"$('AutoShareServer='+$p.AutoShareServer) $($('AutoShareWKS='+$p.AutoShareWKS)\" } Catch { 'NOTFOUND' }"
+      judge:
+        type: regex_present
+        value: "(?i)AutoShareServer=0"
+        treat_empty_as: fail
+      remediation: "注册表 lanmanserver\\parameters 下设 AutoShareServer=0、AutoShareWKS=0，并删除默认共享。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-NET-016
+      category: 主机安全
+      subsystem: 会话安全
+      name: 网络服务挂起时间（15分钟）
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "安全选项『Microsoft 网络服务器: 暂停会话前所需的空闲时间量』=15分钟。需人工核查。"
+      remediation: "本地安全策略→安全选项，设置空闲挂起前时间为15分钟。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-AUTO-017
+      category: 主机安全
+      subsystem: 系统加固
+      name: 关闭驱动器自动播放
+      severity: low
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "Try { (Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer' -Name NoDriveTypeAutoRun -ErrorAction Stop).NoDriveTypeAutoRun } Catch { 'NOTFOUND' }"
+      judge:
+        type: not_equals
+        value: "NOTFOUND"
+        treat_empty_as: fail
+      remediation: "组策略→管理模板→Windows组件→自动播放策略，启用『关闭自动播放』并选所有驱动器。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-TIME-018
+      category: 主机安全
+      subsystem: 时间同步
+      name: 时间服务器时钟同步（w32time）
+      severity: medium
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "$s=(Get-Service -Name w32time -ErrorAction SilentlyContinue).Status; $m=(Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\w32time\\Parameters' -Name NtpServer -ErrorAction SilentlyContinue).NtpServer; \"$('state='+$s) $($('ntp='+$m)\""
+      judge:
+        type: regex_present
+        value: "(?i)state=Running"
+        treat_empty_as: fail
+      remediation: "服务中启动 Windows Time 并设为自动，配置 NtpServer 时间服务器地址。"
+      reference: "等保2.0 8.1.4"
+      timeout: 20
+
+    - id: WIN-LOGIN-019
+      category: 主机安全
+      subsystem: 会话安全
+      name: 登录超时强制注销
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "安全选项『网络安全: 在超过登录时间后强制注销』与『登录时间过期后断开连接』已启用。需人工核查。"
+      remediation: "本地安全策略→安全选项，启用上述两项。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-SESSION-020
+      category: 主机安全
+      subsystem: 会话安全
+      name: 会话限制（不显示最后用户名/Ctrl+Alt+Del）
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "不显示最后的用户名=启用、交互式登录无须按 Ctrl+Alt+Del=禁用、过期前提示改密≠0。需人工核查。"
+      remediation: "本地安全策略→安全选项，配置上述会话限制项。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-LOG-021
+      category: 主机安全
+      subsystem: 安全审计
+      name: 系统/安全/应用日志大小≥51200KB
+      severity: medium
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "(Get-EventLog -List -ErrorAction SilentlyContinue | Where-Object { $_.Log -in 'Application','System','Security' } | ForEach-Object { [int]($_.MaximumSize/1KB) }) -join ','"
+      judge:
+        type: regex_present
+        value: "(5[1-9][0-9]{3}|[6-9][0-9]{4})"
+        treat_empty_as: fail
+      remediation: "事件查看器→Windows 日志，应用/系统/安全日志大小设≥51200KB 并按需改写事件。"
+      reference: "等保2.0 8.1.4"
+      timeout: 20
+
+    - id: WIN-ANON-022
+      category: 主机安全
+      subsystem: 访问控制
+      name: 限制匿名用户连接（SAM 匿名枚举）
+      severity: high
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "Try { $lsa=Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa' -ErrorAction Stop; \"$('RestrictAnonymousSAM='+$lsa.RestrictAnonymousSAM) $($('RestrictAnonymous='+$lsa.RestrictAnonymous)\" } Catch { 'NOTFOUND' }"
+      judge:
+        type: regex_present
+        value: "(?i)RestrictAnonymousSAM=1"
+        treat_empty_as: fail
+      remediation: "本地安全策略→安全选项，启用『不允许 SAM 帐户的匿名枚举』与『不允许 SAM 帐户和共享的匿名枚举』。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-DDOS-023
+      category: 主机安全
+      subsystem: 网络加固
+      name: SYN 攻击保护（SynAttackProtect=1）
+      severity: high
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "Try { (Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters' -Name SynAttackProtect -ErrorAction Stop).SynAttackProtect } Catch { 'NOTFOUND' }"
+      judge:
+        type: numeric_geq
+        value: 1
+        treat_empty_as: fail
+      remediation: "Tcpip\\Parameters 下设 SynAttackProtect=1、TcpMaxPortsExhausted=5、TcpMaxHalfOpen=500、TcpMaxHalfOpenRetried=400。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-CHAN-024
+      category: 主机安全
+      subsystem: 网络加固
+      name: 域成员安全通道数字加密/签名
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "安全选项『域成员: 对安全通道数据进行数字加密(如果可能)/或数字签名(始终)/数字签名(如果可能)/需要强会话密钥』均启用。需人工核查。"
+      remediation: "本地安全策略→安全选项，启用上述域成员安全通道相关项。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-DEP-025
+      category: 主机安全
+      subsystem: 系统加固
+      name: 启用数据执行保护(DEP)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "系统属性→高级→性能→数据执行保护=仅为基本 Windows 程序和服务启用 DEP。需人工核查。"
+      remediation: "系统属性→高级→性能设置→DEP，设为仅为基本 Windows 程序和服务启用。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-REBOOT-026
+      category: 主机安全
+      subsystem: 系统加固
+      name: 蓝屏后自动重启
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "启动和故障恢复→系统失败→自动重新启动已勾选。需人工核查。"
+      remediation: "系统属性→高级→启动和故障恢复，勾选『自动重新启动』。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-CLEARVM-027
+      category: 主机安全
+      subsystem: 系统加固
+      name: 关机前清除虚拟内存页面
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "安全选项『关机: 清除虚拟内存页面文件』已启用。需人工核查。"
+      remediation: "gpedit.msc→本地策略→安全选项，启用『关机: 清除虚拟内存页面文件』。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-STARTUP-028
+      category: 主机安全
+      subsystem: 系统加固
+      name: 关闭不必要的自启动项
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "任务管理器/msconfig 中已关闭不必要的启动项。需人工核查。"
+      remediation: "msconfig 或任务管理器，取消不必要的启动项。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-ACC-029
+      category: 主机安全
+      subsystem: 账号管理
+      name: 停用不使用的帐号
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "非业务账号已停用或删除。需人工核查本地用户和组。"
+      remediation: "计算机管理→本地用户和组，停用或删除非业务账号。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-NETACC-030
+      category: 主机安全
+      subsystem: 用户权限
+      name: 从网络访问此计算机仅 Administrators
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "用户权限分配『从网络访问此计算机』仅包含 Administrators 组。需人工核查。"
+      remediation: "本地安全策略→用户权限分配，将『从网络访问此计算机』仅设为 Administrators 组。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-PATCH-031
+      category: 主机安全
+      subsystem: 补丁
+      name: 安装必要安全补丁
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "控制面板→程序→显示更新，确认已安装必要安全补丁。需人工核查。"
+      remediation: "通过 Windows Update 安装最新安全补丁。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-RDP-032
+      category: 主机安全
+      subsystem: 远程维护
+      name: 远程桌面网络级身份验证(NLA)
+      severity: high
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "Try { (Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp' -Name UserAuthentication -ErrorAction Stop).UserAuthentication } Catch { 'NOTFOUND' }"
+      judge:
+        type: equals
+        value: "1"
+        treat_empty_as: fail
+      remediation: "系统属性→远程，勾选『仅允许运行带网络级身份验证的远程桌面的计算机连接』。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-SOFT-033
+      category: 主机安全
+      subsystem: 系统加固
+      name: 无多余软件
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "控制面板→程序，无多余/不必要软件。需人工核查。"
+      remediation: "卸载与业务无关的多余软件。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-ACL-034
+      category: 主机安全
+      subsystem: 访问控制
+      name: 关键目录 everyone 无写入权限
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "系统盘/应用/数据目录的安全 ACL 中，除 administrators 与 system 外其他用户无完全控制。需人工核查。"
+      remediation: "取消其他用户对关键目录的完全控制权限。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-MTU-035
+      category: 主机安全
+      subsystem: 网络加固
+      name: 防止碎片攻击（EnablePMTUDiscovery=0）
+      severity: low
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "Try { (Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters' -Name EnablePMTUDiscovery -ErrorAction Stop).EnablePMTUDiscovery } Catch { 'NOTFOUND' }"
+      judge:
+        type: equals
+        value: "0"
+        treat_empty_as: fail
+      remediation: "Tcpip\\Parameters 下设 EnablePMTUDiscovery=0。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-SYN-036
+      category: 主机安全
+      subsystem: 网络加固
+      name: 启用 SYN 攻击保护（阈值）
+      severity: high
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "Try { $p=Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters' -ErrorAction Stop; \"$('Syn='+$p.SynAttackProtect) $($('Exh='+$p.TcpMaxPortsExhausted) $($('Half='+$p.TcpMaxHalfOpen) $($('Ret='+$p.TcpMaxHalfOpenRetried)))\" } Catch { 'NOTFOUND' }"
+      judge:
+        type: regex_present
+        value: "(?i)Syn=([1-9]|[1-9][0-9])"
+        treat_empty_as: fail
+      remediation: "Tcpip\\Parameters 下设 SynAttackProtect=1、TcpMaxPortsExhausted=5、TcpMaxHalfOpen=500、TcpMaxHalfOpenRetried=400。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-SRCROUTE-037
+      category: 主机安全
+      subsystem: 网络加固
+      name: 防止源路由欺骗（DisableIPSourceRouting=1）
+      severity: medium
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "Try { (Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters' -Name DisableIPSourceRouting -ErrorAction Stop).DisableIPSourceRouting } Catch { 'NOTFOUND' }"
+      judge:
+        type: numeric_geq
+        value: 1
+        treat_empty_as: fail
+      remediation: "Tcpip\\Parameters 下设 DisableIPSourceRouting=1（或2）。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-ICMP-038
+      category: 主机安全
+      subsystem: 网络加固
+      name: 禁止 ICMP 重定向（EnableICMPRedirect=0）
+      severity: medium
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "Try { (Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Services\\Tcpip\\Parameters' -Name EnableICMPRedirect -ErrorAction Stop).EnableICMPRedirect } Catch { 'NOTFOUND' }"
+      judge:
+        type: equals
+        value: "0"
+        treat_empty_as: fail
+      remediation: "Tcpip\\Parameters 下设 EnableICMPRedirect=0。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-IUSR-039
+      category: 主机安全
+      subsystem: 账号管理
+      name: 禁用 Internet 来宾帐户
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "Internet 来宾帐户（如 IUSR/IWAM）已禁用。需人工核查本地用户和组。"
+      remediation: "计算机管理→本地用户和组，禁用 Internet 来宾帐户。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-RDP-040
+      category: 主机安全
+      subsystem: 远程维护
+      name: 关闭远程桌面服务
+      severity: high
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "Try { (Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server' -Name fDenyTSConnections -ErrorAction Stop).fDenyTSConnections } Catch { 'NOTFOUND' }"
+      judge:
+        type: equals
+        value: "1"
+        treat_empty_as: fail
+      remediation: "系统属性→远程，取消『允许远程连接到此计算机』（或注册表 fDenyTSConnections=1）。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-RDP-041
+      category: 主机安全
+      subsystem: 远程维护
+      name: 修改默认远程登录端口（非3389）
+      severity: medium
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "Try { (Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp' -Name PortNumber -ErrorAction Stop).PortNumber } Catch { 'NOTFOUND' }"
+      judge:
+        type: not_equals
+        value: "3389"
+        treat_empty_as: fail
+      remediation: "修改 RDP-Tcp\\PortNumber 为非 3389 的端口并重启。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-AUTOLOG-042
+      category: 主机安全
+      subsystem: 系统加固
+      name: 禁止用户开机自动登录（AutoAdminLogon=0）
+      severity: high
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "Try { (Get-ItemProperty 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon' -Name AutoAdminLogon -ErrorAction Stop).AutoAdminLogon } Catch { 'NOTFOUND' }"
+      judge:
+        type: equals
+        value: "0"
+        treat_empty_as: fail
+      remediation: "Winlogon 下设 AutoAdminLogon=0（或删除该值）。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15
+
+    - id: WIN-IPC-043
+      category: 主机安全
+      subsystem: 访问控制
+      name: 禁止 IPC$ 空连接（restrictanonymous=1）
+      severity: high
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: "Try { (Get-ItemProperty 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Lsa' -Name restrictanonymous -ErrorAction Stop).restrictanonymous } Catch { 'NOTFOUND' }"
+      judge:
+        type: equals
+        value: "1"
+        treat_empty_as: fail
+      remediation: "Lsa 下设 restrictanonymous=1，禁止 IPC$ 空连接枚举。"
+      reference: "等保2.0 8.1.4"
+      timeout: 15

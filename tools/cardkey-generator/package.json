@@ -1,0 +1,15 @@
+{
+  "name": "cardkey-generator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "安全基线核查系统 - 卡密生成机 (Electron GUI)",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-packager . CardKeyGenerator --platform=win32 --arch=x64 --out=../../dist-exe --overwrite --icon= --no-prune --electron-version=33.4.11"
+  },
+  "devDependencies": {
+    "electron": "33.4.11",
+    "electron-packager": "^17.1.2"
+  }
+}

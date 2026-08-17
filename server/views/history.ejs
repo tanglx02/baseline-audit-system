@@ -1,0 +1,24 @@
+<%- include('_head', {title:'历史 - 安全基线核查系统'}) %>
+<%- include('_nav', {active:'history'}) %>
+<main class="container">
+  <h1>历史扫描</h1>
+  <% if (scans.length === 0) { %>
+    <p class="muted">暂无扫描记录。</p>
+  <% } else { %>
+    <table>
+      <thead><tr><th>主机</th><th>类型</th><th>时间</th><th>合规率</th><th></th></tr></thead>
+      <tbody>
+      <% scans.forEach(function(sc){ var s=JSON.parse(sc.summary||'{}'); var d=(s.passed||0)+(s.failed||0); var c=d>0?((s.passed/d)*100).toFixed(1)+'%':'—'; %>
+        <tr>
+          <td><%= sc.hostname %></td>
+          <td><span class="badge-plat <%= sc.platform %>"><%= sc.target_type %></span></td>
+          <td><%= sc.created_at?sc.created_at.replace('T',' ').slice(0,19):'' %></td>
+          <td><%= c %></td>
+          <td><a class="btn btn-sm" href="/reports/<%= sc.id %>">查看</a></td>
+        </tr>
+      <% }); %>
+      </tbody>
+    </table>
+  <% } %>
+</main>
+<%- include('_foot') %>

@@ -1,0 +1,161 @@
+catalog:
+  id: infra_network
+  platform: cross
+  version: "1.0.0"
+  description: "网络设备安全基线（新增类别，覆盖交换机/路由器/防火墙/负载均衡，参考等保2.0 与 CIS 网络设备）"
+  items:
+    - id: NET-AUTH-001
+      category: 网络安全
+      subsystem: 网络设备
+      name: 修改默认口令/无空口令
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "登录设备确认所有账号均使用强口令，无 admin/admin、空口令或厂商默认凭据。需 console/SSH 核查。"
+      remediation: "修改所有默认账号口令为不规律强口令；删除/禁用无用账号。"
+      reference: "等保2.0 8.1.4 / CIS Network"
+      timeout: 10
+
+    - id: NET-TELNET-002
+      category: 网络安全
+      subsystem: 网络设备
+      name: 禁用 Telnet 明文管理
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "设备管理仅允许 SSHv2，确认未开放 telnet server。需登录设备核查 running-config。"
+      remediation: "no telnet-server; 启用 line vty 仅 transport input ssh。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: NET-SSH-003
+      category: 网络安全
+      subsystem: 网络设备
+      name: 仅启用 SSHv2 并限制源
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "ip ssh version 2；管理 ACL 限制仅运维网段可 SSH。需核查配置。"
+      remediation: "ip ssh version 2; 配置 ACL 限制管理源地址。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: NET-SNMP-004
+      category: 网络安全
+      subsystem: 网络设备
+      name: 禁用 SNMP v1/v2c(仅 v3)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "确认未使用 public/private 社区字，SNMP 仅启用 v3 带认证与加密。需核查配置。"
+      remediation: "no snmp-server community public; snmp-server group v3 配合 auth/priv。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: NET-ACL-005
+      category: 网络安全
+      subsystem: 网络设备
+      name: 配置访问控制列表(ACL)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "边界与互联系应有 ACL 控制互访，默认拒绝非法流量。需核查策略。"
+      remediation: "部署入向/出向 ACL，按最小授权放行必要流量。"
+      reference: "等保2.0 8.1.3"
+      timeout: 10
+
+    - id: NET-LOG-006
+      category: 网络安全
+      subsystem: 网络设备
+      name: 启用日志并集中收集
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "设备应配置 syslog 指向日志服务器，记录登录与策略变更。需核查 logging host 配置。"
+      remediation: "logging host <syslog-server>; logging trap informational。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: NET-NTP-007
+      category: 网络安全
+      subsystem: 网络设备
+      name: 配置 NTP 时间同步
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "设备应指向受信 NTP 服务器并保持时间一致。需核查 ntp server 配置。"
+      remediation: "配置 ntp server 指向内网/受信时间源。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: NET-PORT-008
+      category: 网络安全
+      subsystem: 网络设备
+      name: 关闭未使用物理/逻辑端口
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "未用端口应 shutdown 并置于未用 VLAN；access 端口关闭 DTP/协商。需核查接口配置。"
+      remediation: "interface range 未用端口 shutdown; switchport mode access。"
+      reference: "CIS Network"
+      timeout: 10
+
+    - id: NET-BANNER-009
+      category: 网络安全
+      subsystem: 网络设备
+      name: 配置登录告警横幅
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "登录前应展示法律/授权告警横幅(banner login)。需核查配置。"
+      remediation: "配置 banner login 与 banner motd 法律声明。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: NET-AUDIT-010
+      category: 网络安全
+      subsystem: 网络设备
+      name: 启用操作审计与账户锁定
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "失败登录应触发锁定/延时，关键操作应审计。需核查 aaa/.login block 配置。"
+      remediation: "启用 aaa authentication 与 login block-for 防暴破。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: NET-FW-011
+      category: 网络安全
+      subsystem: 防火墙
+      name: 防火墙默认拒绝策略
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "防火墙安全策略默认动作应为 deny/deny-all，按需放行业务。需核查默认策略与规则排序。"
+      remediation: "将默认策略设为拒绝，按白名单放行。"
+      reference: "等保2.0 8.1.3"
+      timeout: 10
+
+    - id: NET-FW-012
+      category: 网络安全
+      subsystem: 防火墙
+      name: 启用会话日志与入侵防护
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "防火墙应记录会话/威胁日志并启用 IPS(如支持)，日志外发至 SIEM。需人工核查。"
+      remediation: "开启会话与威胁日志，启用 IPS 规则集并外发至 SIEM。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10

@@ -1,0 +1,25 @@
+# 依赖
+node_modules/
+tools/*/node_modules/
+
+# 实例数据（数据库、许可证、用户配置）
+server/instance/
+config.json
+
+# 打包产物
+dist-exe/
+backups/
+
+# 系统/编辑器
+.workbuddy/
+.idea/
+.vscode/
+.DS_Store
+
+# 日志
+*.log
+npm-debug.log*
+
+# 临时
+backups/.uploads/
+backups/.tmp/

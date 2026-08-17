@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'" />
+  <title>基线核查系统 - 授权管理机</title>
+  <style>
+    :root { --bg:#f5f7fa; --panel:#fff; --line:#e3e8ef; --accent:#2f6fed; --ok:#2e9e5b; --bad:#d8503a; --muted:#6b7686; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: -apple-system,"Microsoft YaHei",Segoe UI,Roboto,sans-serif; background:var(--bg); color:#1f2733; }
+    header { background:var(--accent); color:#fff; padding:14px 20px; font-size:18px; font-weight:600; }
+    .wrap { max-width:880px; margin:0 auto; padding:18px 20px 40px; }
+    .tabs { display:flex; gap:6px; flex-wrap:wrap; margin:14px 0; }
+    .tab { padding:8px 14px; border:1px solid var(--line); background:var(--panel); border-radius:8px; cursor:pointer; font-size:14px; }
+    .tab.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+    .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:14px; }
+    .panel h2 { margin:0 0 10px; font-size:16px; }
+    .muted { color:var(--muted); font-size:13px; }
+    label { display:block; margin:10px 0 4px; font-size:13px; font-weight:600; }
+    input, textarea, select { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:7px; font-size:13px; font-family:inherit; }
+    textarea { min-height:64px; resize:vertical; }
+    .mono { font-family: ui-monospace,Consolas,Menlo,monospace; word-break:break-all; }
+    .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    .row > * { flex:1; min-width:200px; }
+    button { background:var(--accent); color:#fff; border:none; padding:9px 16px; border-radius:7px; cursor:pointer; font-size:13px; }
+    button.sec { background:#eef1f6; color:#1f2733; }
+    button:active { transform:translateY(1px); }
+    .badge { display:inline-block; padding:2px 10px; border-radius:10px; font-size:12px; }
+    .badge.ok { background:#e6f6ed; color:var(--ok); }
+    .badge.bad { background:#fdeae6; color:var(--bad); }
+    .out { margin-top:10px; padding:10px; background:#f0f3f8; border-radius:7px; font-size:13px; white-space:pre-wrap; word-break:break-all; }
+    .hidden { display:none; }
+    .secret-row { background:#fff8e6; border:1px solid #f0dca0; }
+  </style>
+</head>
+<body>
+  <header>基线核查系统 · 授权管理机 (LicenseManager)</header>
+  <div class="wrap">
+    <div class="tabs">
+      <div class="tab active" data-tab="machine">本机机器码</div>
+      <div class="tab" data-tab="gen">生成许可证</div>
+      <div class="tab" data-tab="activate">激活</div>
+      <div class="tab" data-tab="verify">校验</div>
+      <div class="tab" data-tab="help">帮助</div>
+    </div>
+
+    <!-- 本机机器码 -->
+    <section id="tab-machine" class="panel">
+      <h2>本机机器码</h2>
+      <p class="muted">将此机器码发给供应商即可获取对应许可证（部署在客户机上时，客户应发送其自身机器码）。</p>
+      <label>机器码（machine code）</label>
+      <input id="mc" class="mono" readonly />
+      <label>系统信息</label>
+      <input id="os" class="mono" readonly />
+      <p class="muted" style="margin-top:10px">说明：机器码 = SHA256(主机名|平台|系统版本|首块网卡MAC)，换机或改主机名将导致校验失败。</p>
+    </section>
+
+    <!-- 生成许可证 -->
+    <section id="tab-gen" class="panel hidden">
+      <h2>生成许可证</h2>
+      <label>目标机器码 machineCode</label>
+      <input id="gen-mc" class="mono" placeholder="粘贴客户提供的机器码" />
+      <div class="row">
+        <div>
+          <label>有效期至 expiresAt（YYYY-MM-DD）</label>
+          <input id="gen-exp" placeholder="2099-12-31" />
+        </div>
+        <div>
+          <label>功能模块 features（逗号分隔）</label>
+          <input id="gen-feat" value="all" />
+        </div>
+      </div>
+      <div class="panel secret-row" style="margin-top:12px">
+        <label>签名密钥 SECRET（默认与服务器一致，仅当服务器设置了 LICENSE_SECRET 时修改）</label>
+        <input id="gen-secret" placeholder="留空=使用默认密钥" />
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button id="btn-gen">生成许可证</button>
+        <button class="sec" id="btn-gen-copy">复制</button>
+        <button class="sec" id="btn-gen-save">保存为文件</button>
+      </div>
+      <div id="gen-out" class="out hidden"></div>
+    </section>
+
+    <!-- 激活 -->
+    <section id="tab-activate" class="panel hidden">
+      <h2>激活 / 更换许可证</h2>
+      <label>服务器 instance 目录（license.key 所在目录）</label>
+      <div class="row">
+        <input id="act-dir" class="mono" placeholder="例如 …/基线核查系统/server/instance" />
+        <button class="sec" id="btn-act-pick">浏览…</button>
+      </div>
+      <label>许可证字符串</label>
+      <textarea id="act-lic" class="mono" placeholder="粘贴供应商下发的许可证"></textarea>
+      <div class="row" style="margin-top:12px">
+        <button id="btn-act">激活</button>
+        <button class="sec" id="btn-act-load">从文件读取</button>
+        <button class="sec btn-danger" id="btn-act-revoke">吊销本机许可证</button>
+      </div>
+      <div id="act-out" class="out hidden"></div>
+    </section>
+
+    <!-- 校验 -->
+    <section id="tab-verify" class="panel hidden">
+      <h2>校验许可证</h2>
+      <label>许可证字符串</label>
+      <textarea id="ver-lic" class="mono" placeholder="粘贴许可证字符串"></textarea>
+      <div class="panel secret-row" style="margin-top:12px">
+        <label>签名密钥 SECRET（留空=默认）</label>
+        <input id="ver-secret" placeholder="留空=使用默认密钥" />
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button id="btn-ver">校验</button>
+        <button class="sec" id="btn-ver-load">从文件读取</button>
+      </div>
+      <div id="ver-out" class="out hidden"></div>
+    </section>
+
+    <!-- 帮助 -->
+    <section id="tab-help" class="panel hidden">
+      <h2>使用流程</h2>
+      <ol>
+        <li><b>取机器码</b>：在目标部署服务器上打开本程序「本机机器码」，复制机器码发给供应商。</li>
+        <li><b>生成</b>：供应商在本程序「生成许可证」粘贴机器码+有效期，生成许可证字符串。</li>
+        <li><b>激活</b>：客户在「激活」选择服务器 instance 目录并粘贴许可证，写入 license.key，系统即转为已授权（无需重启）。</li>
+        <li><b>校验/吊销</b>：随时在「校验」查看有效期与机器码匹配；在「激活」可吊销清除。</li>
+      </ol>
+      <p class="muted">许可证采用 HMAC-SHA256 签名，绑定机器码 + 有效期；篡改或换机均会校验失败。</p>
+    </section>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,238 @@
+catalog:
+  id: db_sqlserver_win
+  platform: windows
+  version: "1.0.0"
+  description: "SQL Server(Windows) 数据库安全基线（补全空白章节，参考 CIS SQL Server Benchmark）"
+  items:
+    - id: MSSQL-AUTH-001
+      category: 数据库安全
+      subsystem: SQLServer
+      name: 禁用混合身份验证(仅 Windows -auth)
+      severity: high
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: |-
+          (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\*\MSSQLServer" -ErrorAction SilentlyContinue).LoginMode
+      judge:
+        type: equals
+        value: "1"
+        treat_empty_as: fail
+      remediation: "将 LoginMode 设为 1（仅 Windows 身份验证），重启服务生效。"
+      reference: "CIS SQL Server Benchmark"
+      timeout: 10
+
+    - id: MSSQL-SA-002
+      category: 数据库安全
+      subsystem: SQLServer
+      name: 禁用或重命名 sa 账户
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "执行 SELECT is_disabled FROM sys.sql_logins WHERE name='sa'; 应为 1(禁用)或已重命名。需连库确认。"
+      remediation: "ALTER LOGIN sa DISABLE; 或 sp_rename 'sa','新名';"
+      reference: "CIS SQL Server Benchmark"
+      timeout: 10
+
+    - id: MSSQL-PWD-003
+      category: 数据库安全
+      subsystem: SQLServer
+      name: 强制口令策略与过期
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "所有登录应启用 CHECK_POLICY=ON 与 CHECK_EXPIRATION=ON，且无空口令。需连库核查 sys.sql_logins。"
+      remediation: "ALTER LOGIN <login> WITH CHECK_POLICY=ON, CHECK_EXPIRATION=ON;"
+      reference: "CIS SQL Server Benchmark"
+      timeout: 10
+
+    - id: MSSQL-XP-004
+      category: 数据库安全
+      subsystem: SQLServer
+      name: 禁用 xp_cmdshell
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "exec sp_configure 'xp_cmdshell'; 应显示 run_value=0。需连库确认。"
+      remediation: "EXEC sp_configure 'xp_cmdshell',0; RECONFIGURE;"
+      reference: "CIS SQL Server Benchmark"
+      timeout: 10
+
+    - id: MSSQL-XP-005
+      category: 数据库安全
+      subsystem: SQLServer
+      name: 禁用危险扩展过程(xp_delete_file 等)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "确认未注册/未启用 xp_regwrite、xp_delete_file、xp_dirtree 等危险扩展存储过程。需连库核查。"
+      remediation: "DROP EXTENDED PROCEDURE xp_xxx; 或撤销 PUBLIC 执行权限。"
+      reference: "CIS SQL Server Benchmark"
+      timeout: 10
+
+    - id: MSSQL-CLR-006
+      category: 数据库安全
+      subsystem: SQLServer
+      name: 禁用 CLR 严格安全之外的危险 CLR
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "sp_configure 'clr enabled' 应为 0（除非业务强依赖）。需连库确认。"
+      remediation: "EXEC sp_configure 'clr enabled',0; RECONFIGURE;"
+      reference: "CIS SQL Server Benchmark"
+      timeout: 10
+
+    - id: MSSQL-AUDIT-007
+      category: 数据库安全
+      subsystem: SQLServer
+      name: 启用审计(Audit/SQL Audit)
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "应创建服务器级/库级审计并将操作写入安全位置。需人工核查 SSMS 审计配置。"
+      remediation: "CREATE SERVER AUDIT ... WITH (STATE=ON); 并关联 Audit Specification。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MSSQL-PORT-008
+      category: 数据库安全
+      subsystem: SQLServer
+      name: 修改默认端口(非1433)/隐藏实例
+      severity: low
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: |-
+          (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\*\MSSQLServer\SuperSocketNetLib\Tcp" -ErrorAction SilentlyContinue).TcpPort
+      judge:
+        type: not_equals
+        value: "1433"
+        treat_empty_as: fail
+      remediation: "在 SQL Server 配置管理器将 TCP 端口改为非 1433，并可设置 HideInstance=1。"
+      reference: "CIS SQL Server Benchmark"
+      timeout: 10
+
+    - id: MSSQL-SVC-009
+      category: 数据库安全
+      subsystem: SQLServer
+      name: SQL Server 服务以专用低权账户运行
+      severity: high
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: |-
+          (Get-WmiObject Win32_Service -Filter "Name LIKE 'MSSQL$%' OR Name='MSSQLSERVER'" | Select-Object -First 1).StartName
+      judge:
+        type: regex_absent
+        value: "(?i)LocalSystem|NT AUTHORITY\\SYSTEM"
+        treat_empty_as: fail
+      remediation: '将 SQL Server 服务账户改为专用虚拟账户(如 NT SERVICE\MSSQLSERVER)或低权域账户。'
+      reference: "CIS SQL Server Benchmark"
+      timeout: 10
+
+    - id: MSSQL-ENC-010
+      category: 数据库安全
+      subsystem: SQLServer
+      name: 启用透明数据加密(TDE)
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "敏感库应启用 TDE（sys.dm_database_encryption_keys 状态 ENCRYPTED）。需连库确认。"
+      remediation: "CREATE DATABASE ENCRYPTION KEY ...; ALTER DATABASE <db> SET ENCRYPTION ON;"
+      reference: "CIS SQL Server Benchmark"
+      timeout: 10
+
+    - id: MSSQL-LINK-011
+      category: 数据库安全
+      subsystem: SQLServer
+      name: 清理未授权链接服务器
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "sys.servers 中仅保留必要链接服务器，且不使用 sa 凭据。需连库核查。"
+      remediation: "EXEC sp_dropserver '<name>'; 移除多余链接服务器。"
+      reference: "CIS SQL Server Benchmark"
+      timeout: 10
+
+    - id: MSSQL-LOGIN-012
+      category: 数据库安全
+      subsystem: SQLServer
+      name: 限制 sysadmin 角色成员
+      severity: high
+      check_type: manual
+      method:
+        type: manual
+        description: "SELECT * FROM sys.server_role_members WHERE role_principal_id=3; 仅必要账号为 sysadmin。需连库确认。"
+      remediation: "ALTER SERVER ROLE sysadmin DROP MEMBER <login>;"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MSSQL-BAK-013
+      category: 数据库安全
+      subsystem: SQLServer
+      name: 备份文件权限与加密
+      severity: medium
+      check_type: manual
+      method:
+        type: manual
+        description: "备份目录应仅对 DBA 与备份账户可写，备份文件建议加密存储。需人工核查 NTFS ACL。"
+      remediation: "通过 NTFS ACL 收紧备份目录权限。"
+      reference: "CIS SQL Server Benchmark"
+      timeout: 10
+
+    - id: MSSQL-PATCH-014
+      category: 数据库安全
+      subsystem: SQLServer
+      name: 安装最新 Service Pack/CU
+      severity: medium
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: |-
+          (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\*\MSSQLServer\CurrentVersion" -ErrorAction SilentlyContinue).CurrentVersion
+      judge:
+        type: regex_present
+        value: "[0-9]+\\.[0-9]+"
+        treat_empty_as: fail
+      remediation: "安装最新 Service Pack / Cumulative Update 以修复已知漏洞。"
+      reference: "CIS SQL Server Benchmark"
+      timeout: 10
+
+    - id: MSSQL-LOG-015
+      category: 数据库安全
+      subsystem: SQLServer
+      name: 错误日志与登录失败审计保留
+      severity: low
+      check_type: manual
+      method:
+        type: manual
+        description: "错误日志应保留多份并定期回收，登录失败应被记录。需人工核查日志配置。"
+      remediation: "配置多错误日志文件与登录失败审计。"
+      reference: "等保2.0 8.1.4"
+      timeout: 10
+
+    - id: MSSQL-REM-016
+      category: 数据库安全
+      subsystem: SQLServer
+      name: 禁用 SQL Server Browser 服务(如非必需)
+      severity: low
+      check_type: auto
+      method:
+        type: powershell
+        actual_cmd: |-
+          (Get-Service SQLBrowser -ErrorAction SilentlyContinue).Status
+      judge:
+        type: not_equals
+        value: "Running"
+        treat_empty_as: pass
+      remediation: "若不使用命名实例/动态端口，停止并禁用 SQL Server Browser 服务。"
+      reference: "CIS SQL Server Benchmark"
+      timeout: 10

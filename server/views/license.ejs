@@ -1,0 +1,89 @@
+<%- include('_head', {title:'授权状态 - 安全基线核查系统'}) %>
+<%- include('_nav', {active:'license'}) %>
+<main class="container">
+  <h1>授权状态</h1>
+  <div class="alert-info">
+    在此页面直接<b>粘贴卡密</b>即可激活，无需登录服务器改文件。卡密由供应商签发，
+    若还没有卡密，请<b>联系作者 QQ：54312795</b> 获取。
+  </div>
+
+  <div class="panel">
+    <h2>当前状态</h2>
+    <p>授权状态：
+      <% if (status.valid) { %>
+        <span class="badge ok">已授权</span>
+        <% if (status.mode === 'card') { %><span class="badge">卡密激活</span><% } else { %><span class="badge">机器码许可证</span><% } %>
+        有效期至 <b><%= status.payload.exp || '永久' %></b>
+        <% if (status.daysLeft != null) { %>，剩余 <b><%= status.daysLeft %></b> 天<% } %>，
+        功能：<%= (status.payload.feat||[]).join(', ') %>
+      <% } else { %>
+        <span class="badge bad">未授权（<%= status.reason %>）</span>
+      <% } %>
+    </p>
+    <p class="muted">本机机器码（仅供参考，卡密激活不绑定机器码）：<code class="mono"><%= machineCode %></code></p>
+  </div>
+
+  <div class="panel">
+    <h2><%= status.valid ? '更换 / 重新激活卡密' : '激活卡密' %></h2>
+    <p class="muted">把从作者处获取的卡密整段粘贴到下方，点击「激活」立即生效（无需重启）。卡密不绑定机器，换机/重装后重新粘贴同一卡密即可。</p>
+    <textarea id="licInput" class="lic-input" rows="4" placeholder="请输入卡密，例如：eyJ..._.xxxx"></textarea>
+    <div class="row">
+      <button id="btn-activate" class="btn btn-primary" onclick="activate()">激活卡密</button>
+      <% if (status.valid) { %>
+        <button id="btn-deactivate" class="btn btn-danger" onclick="deactivate()">吊销当前授权</button>
+      <% } %>
+    </div>
+    <div id="licMsg" class="msg"></div>
+  </div>
+
+  <div class="panel contact-author">
+    <h2>获取卡密</h2>
+    <p>本系统需有效卡密才能使用全部功能。如尚未获取，请<b>联系作者 QQ：54312795</b> 申请签发卡密。</p>
+    <p class="muted">卡密采用 <code>HMAC-SHA256</code> 离线签名校验，含有效期；不绑定机器，可跨服务器使用。</p>
+  </div>
+
+  <div class="panel">
+    <h2>批量发卡（卡密生成机 CardKeyGenerator.exe）</h2>
+    <p class="muted">供应商可在 Windows 上使用独立的「卡密生成机」<code>CardKeyGenerator.exe</code> 批量生成卡密
+    （指定数量与有效期），其算法与本站完全一致，生成的卡密可直接在网页激活。</p>
+  </div>
+</main>
+
+<script>
+function reasonText(r){
+  return ({
+    NO_LICENSE:'无卡密', MALFORMED:'格式错误', BAD_PAYLOAD:'内容解析失败',
+    BAD_SIGNATURE:'签名校验失败（卡密可能被篡改或不是本系统签发）', EXPIRED:'卡密已过期',
+    MACHINE_MISMATCH:'机器码不匹配（该许可证不是为本机签发，请用本机机器码申请的许可证）'
+  })[r] || r;
+}
+async function activate(){
+  const ta=document.getElementById('licInput');
+  const out=document.getElementById('licMsg');
+  const lic=ta.value.trim();
+  if(!lic){ out.className='msg err'; out.textContent='请粘贴卡密'; return; }
+  out.className='msg'; out.textContent='处理中…';
+  try{
+    const r=await fetch('/license/activate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({license:lic})});
+    const d=await r.json();
+    if(d.valid){
+      out.className='msg ok';
+      out.textContent='激活成功！'+(d.payload.exp?('有效期至 '+d.payload.exp+'，剩余 '+d.daysLeft+' 天'):'永久有效')+'。正在刷新…';
+      setTimeout(()=>location.reload(),1200);
+    } else {
+      out.className='msg err';
+      out.textContent='激活失败：'+reasonText(d.reason);
+    }
+  }catch(e){ out.className='msg err'; out.textContent='请求失败：'+e.message; }
+}
+async function deactivate(){
+  if(!confirm('确认吊销当前授权？吊销后系统将回到未授权状态。')) return;
+  const out=document.getElementById('licMsg');
+  try{
+    await fetch('/license/deactivate',{method:'POST'});
+    out.className='msg'; out.textContent='已吊销，正在刷新…';
+    setTimeout(()=>location.reload(),800);
+  }catch(e){ out.className='msg err'; out.textContent='吊销失败：'+e.message; }
+}
+</script>
+<%- include('_foot') %>
