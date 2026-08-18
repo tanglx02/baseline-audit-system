@@ -2,17 +2,35 @@
 <%- include('_nav', {active:'servers'}) %>
 <main class="container">
   <h1>服务器</h1>
+
+  <% if (tags && tags.length) { %>
+  <div class="tag-filter">
+    <span class="muted">按标签筛选：</span>
+    <a class="chip <%= !activeTag ? 'chip-on' : '' %>" href="/servers">全部</a>
+    <% tags.forEach(function(t){ %>
+      <a class="chip <%= activeTag === t ? 'chip-on' : '' %>" href="/servers?tag=<%= encodeURIComponent(t) %>"><%= t %></a>
+    <% }); %>
+  </div>
+  <% } %>
+
   <% if (servers.length === 0) { %>
     <p class="muted">尚未接入任何服务器。<a href="/upload">上传基线报告</a>。</p>
   <% } else { %>
     <table>
-      <thead><tr><th>主机名</th><th>平台</th><th>系统</th><th>扫描数</th><th>最近扫描</th><th></th></tr></thead>
+      <thead><tr><th>主机名</th><th>平台</th><th>系统</th><th>标签</th><th>扫描数</th><th>最近扫描</th><th></th></tr></thead>
       <tbody>
       <% servers.forEach(function(s){ %>
         <tr>
           <td><b><%= s.hostname %></b></td>
           <td><span class="badge-plat <%= s.platform %>"><%= s.platform %></span></td>
           <td><%= s.os %> <%= s.os_version||'' %></td>
+          <td>
+            <span class="tag-edit" data-id="<%= s.id %>">
+              <% (s.tags||'').split(',').map(function(x){ return x.trim(); }).filter(Boolean).forEach(function(t){ %><span class="chip"><%= t %></span><% }); %>
+              <input class="tags-input" value="<%= (s.tags||'').replace(/,/g, ', ') %>" placeholder="逗号分隔，如 核心,Web区" size="18">
+              <button class="btn btn-sm" onclick="saveTags(this)">存标签</button>
+            </span>
+          </td>
           <td><%= s.scan_count %></td>
           <td><%= s.last_scan?s.last_scan.replace('T',' ').slice(0,19):'—' %></td>
           <td>
@@ -27,4 +45,13 @@
     </table>
   <% } %>
 </main>
+<script>
+function saveTags(btn){
+  var wrap = btn.closest('.tag-edit');
+  var id = wrap.getAttribute('data-id');
+  var val = wrap.querySelector('.tags-input').value;
+  fetch('/servers/' + id + '/tags', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ tags: val }) })
+    .then(function(r){ return r.json(); }).then(function(d){ if(d.ok){ btn.textContent='已存'; setTimeout(function(){ btn.textContent='存标签'; }, 1200); } });
+}
+</script>
 <%- include('_foot') %>

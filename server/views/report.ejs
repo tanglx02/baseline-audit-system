@@ -31,7 +31,45 @@
     <tr><td>检查项情况</td><td>总数 <%= t.total %> ｜ 合规 <%= t.pass %> ｜ 不合规 <%= t.fail %> ｜ 待人工 <%= t.manual %> ｜ 未知 <%= t.unknown %></td></tr>
   </table>
 
-  <div class="report-item-title"><span>2.设备分类统计</span></div>
+  <% if (trend && trend.length >= 2) {
+       const pts = trend.filter(function(x){ return x.compliance != null; }).map(function(x){ return { t: x.created_at, c: x.compliance }; });
+       if (pts.length >= 2) {
+         const W = 640, H = 210, pad = 40;
+         const maxC = Math.max.apply(null, pts.map(function(p){ return p.c; }));
+         const minC = Math.min.apply(null, pts.map(function(p){ return p.c; }));
+         const lo = Math.max(0, Math.floor((minC * 100 - 10) / 10) * 10 / 100);
+         const hi = Math.min(1, Math.ceil((maxC * 100 + 10) / 10) * 10 / 100);
+         const n = pts.length;
+         function X(i){ return pad + (W - 2 * pad) * (n === 1 ? 0.5 : i / (n - 1)); }
+         function Y(c){ return (H - pad) - (H - 2 * pad) * ((c - lo) / ((hi - lo) || 1)); }
+         const coords = pts.map(function(p, i){ return X(i).toFixed(1) + ',' + Y(p.c).toFixed(1); }).join(' ');
+         const labels = pts.map(function(p, i){ return '<text x="' + X(i).toFixed(1) + '" y="' + (H - 12) + '" font-size="9" text-anchor="middle" fill="#8a94a6">' + (p.t ? p.t.replace('T', ' ').slice(5, 16) : '') + '</text>'; }).join('');
+         const grid = [0, 0.25, 0.5, 0.75, 1].map(function(g){ var v = lo + (hi - lo) * g; var yy = Y(v).toFixed(1); return '<line x1="' + pad + '" y1="' + yy + '" x2="' + (W - pad) + '" y2="' + yy + '" stroke="#eef1f5"/><text x="' + (pad - 6) + '" y="' + ((+yy) + 3).toFixed(1) + '" font-size="9" text-anchor="end" fill="#8a94a6">' + (v * 100).toFixed(0) + '%</text>'; }).join('');
+  %>
+  <div class="report-item-title"><span>3.合规率趋势</span></div>
+  <div class="trend-box">
+    <svg viewBox="0 0 <%= W %> <%= H %>" width="100%" style="max-width:<%= W %>px">
+      <%= grid %>
+      <polygon points="<%= pad %>,<%= (H - pad) %> <%= coords %> <%= X(n - 1).toFixed(1) %>,<%= (H - pad) %>" fill="rgba(47,111,237,0.10)" />
+      <polyline points="<%= coords %>" fill="none" stroke="#2f6fed" stroke-width="2.5" />
+      <% pts.forEach(function(p, i){ %><circle cx="<%= X(i).toFixed(1) %>" cy="<%= Y(p.c).toFixed(1) %>" r="3.5" fill="#2f6fed" /><% }); %>
+      <%= labels %>
+    </svg>
+    <div class="muted" style="font-size:12px">共 <%= pts.length %> 次扫描，合规率从 <%= (pts[0].c * 100).toFixed(1) %>% 变化到 <%= (pts[pts.length - 1].c * 100).toFixed(1) %>%。</div>
+  </div>
+  <% } } %>
+
+  <% if (compare && compare.has) { %>
+  <div class="report-item-title"><span>4.与上期对比</span></div>
+  <div class="compare-box">
+    <div class="cmp-item"><span class="cmp-num up"><%= compare.newFail.length %></span><span class="cmp-lab">本期新增不合规</span></div>
+    <div class="cmp-item"><span class="cmp-num ok"><%= compare.fixed.length %></span><span class="cmp-lab">本期已修复</span></div>
+    <div class="cmp-item"><span class="cmp-num warn"><%= compare.persistent.length %></span><span class="cmp-lab">持续不合规</span></div>
+    <div class="cmp-item"><span class="cmp-num"><%= compare.prevCompliance != null ? (compare.prevCompliance * 100).toFixed(1) + '%' : '—' %></span><span class="cmp-lab">上期合规率</span></div>
+  </div>
+  <% } %>
+
+  <div class="report-item-title"><span>5.设备分类统计</span></div>
   <table class="datagrid">
     <thead><tr><td style="width:16%">类型</td><td>设备数</td><td>检查总数</td><td>合规数</td><td>不合规数</td><td>人工确认数</td><td>失败数</td></tr></thead>
     <tbody>
@@ -63,6 +101,44 @@
     </table>
   <% }); %>
 
+  <% const failItems = [];
+     report.groups.forEach(function(g){ g.items.forEach(function(f){ if (f.status === 'fail') failItems.push({ g: g, f: f }); }); }); %>
+  <div class="report-item-title"><span>整改跟踪（<%= failItems.length %> 项不合规）</span></div>
+  <% if (failItems.length === 0) { %>
+    <p class="muted">当前设备全部合规，无需整改项。</p>
+  <% } else { %>
+  <table class="datagrid" id="remTable">
+    <thead><tr><th style="width:14%">编号</th><th style="width:8%">级别</th><th>核查项 / 期望 / 建议</th><th style="width:11%">整改状态</th><th style="width:11%">责任人</th><th style="width:13%">整改期限</th><th style="width:13%">备注</th><th style="width:7%"></th></tr></thead>
+    <tbody>
+    <% failItems.forEach(function(o){ const f = o.f; const r = remMap[f.item_id] || {}; %>
+      <tr data-item="<%= f.item_id %>"
+          data-name="<%= escAttr(f.name) %>"
+          data-sev="<%= escAttr(f.severity) %>"
+          data-expected="<%= escAttr(f.expected || '') %>"
+          data-actual="<%= escAttr(f.actual == null ? '' : f.actual) %>"
+          data-rem="<%= escAttr(f.remediation || '') %>">
+        <td class="mono"><%= f.item_id %></td>
+        <td class="sev-<%= f.severity %>"><%= f.severity %></td>
+        <td><%= f.name %><div class="rem-hint">期望：<%= f.expected || '' %>｜实测：<%= f.actual == null ? '' : f.actual %></div><div class="rem-hint">建议：<%= f.remediation || '' %></div></td>
+        <td>
+          <select class="rem-status">
+            <option value="pending" <%= (r.status || 'pending') === 'pending' ? 'selected' : '' %>>待整改</option>
+            <option value="in_progress" <%= r.status === 'in_progress' ? 'selected' : '' %>>整改中</option>
+            <option value="fixed" <%= r.status === 'fixed' ? 'selected' : '' %>>已整改</option>
+            <option value="risk_accepted" <%= r.status === 'risk_accepted' ? 'selected' : '' %>>风险可接受</option>
+          </select>
+        </td>
+        <td><input class="rem-owner" value="<%= escAttr(r.owner || '') %>"></td>
+        <td><input class="rem-due" type="date" value="<%= r.due_date || '' %>"></td>
+        <td><input class="rem-note" value="<%= escAttr(r.note || '') %>"></td>
+        <td><button class="btn btn-sm" onclick="saveRem(this)">保存</button></td>
+      </tr>
+    <% }); %>
+    </tbody>
+  </table>
+  <button class="btn btn-primary btn-sm" onclick="exportRem()">导出整改清单 Excel</button>
+  <% } %>
+
   <div class="report-item-title"><span>扫描记录</span></div>
   <table class="datagrid">
     <thead><tr><th>类型</th><th>时间</th><th>合规/不合规/人工/未知</th></tr></thead>
@@ -77,4 +153,45 @@
     </tbody>
   </table>
 </main>
+<script>
+function saveRem(btn){
+  var tr = btn.closest('tr');
+  var itemId = tr.getAttribute('data-item');
+  var status = tr.querySelector('.rem-status').value;
+  var owner = tr.querySelector('.rem-owner').value;
+  var due = tr.querySelector('.rem-due').value;
+  var note = tr.querySelector('.rem-note').value;
+  fetch('/api/servers/<%= report.server.id %>/remediation', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ item_id: itemId, status: status, owner: owner, due_date: due, note: note })
+  }).then(function(r){ return r.json(); }).then(function(d){
+    if (d.ok){ btn.textContent='已保存'; setTimeout(function(){ btn.textContent='保存'; }, 1200); }
+    else { btn.textContent='失败'; }
+  }).catch(function(){ btn.textContent='失败'; });
+}
+function exportRem(){
+  var rows = [];
+  document.querySelectorAll('#remTable tbody tr').forEach(function(tr){
+    rows.push({
+      item_id: tr.getAttribute('data-item'),
+      name: tr.getAttribute('data-name'),
+      severity: tr.getAttribute('data-sev'),
+      expected: tr.getAttribute('data-expected'),
+      actual: tr.getAttribute('data-actual'),
+      remediation: tr.getAttribute('data-rem'),
+      status: tr.querySelector('.rem-status').value,
+      owner: tr.querySelector('.rem-owner').value,
+      due_date: tr.querySelector('.rem-due').value,
+      note: tr.querySelector('.rem-note').value
+    });
+  });
+  fetch('/export/<%= report.server.id %>/remediation', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ rows: rows })
+  }).then(function(r){ return r.blob(); }).then(function(b){
+    var u = URL.createObjectURL(b); var a = document.createElement('a');
+    a.href = u; a.download = 'remediation_<%= report.server.hostname %>.xlsx'; a.click();
+    URL.revokeObjectURL(u);
+  });
+}
+</script>
 <%- include('_foot') %>

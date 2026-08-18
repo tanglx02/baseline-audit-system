@@ -8,6 +8,13 @@
  */
 const ExcelJS = require('exceljs');
 
+const REMEDIATION_STATUS_TEXT = {
+  pending: '待整改',
+  in_progress: '整改中',
+  fixed: '已整改',
+  risk_accepted: '风险可接受',
+};
+
 const CSS = `
 * { box-sizing: border-box; padding: 0; margin: 0; }
 ul, li { list-style: none; }
@@ -289,4 +296,47 @@ async function exportExcel(report) {
   return Buffer.from(buf);
 }
 
-module.exports = { exportHtml, exportCsv, exportExcel };
+// 整改清单 Excel：rows = [{item_id,name,severity,expected,actual,remediation,status,owner,due_date,note}]
+async function exportRemediationExcel(server, rows) {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = '基线核查系统';
+  wb.created = new Date();
+  const ws = wb.addWorksheet('整改清单');
+  ws.columns = [
+    { header: '编号', key: 'item_id', width: 18 },
+    { header: '核查项', key: 'name', width: 34 },
+    { header: '级别', key: 'severity', width: 10 },
+    { header: '期望', key: 'expected', width: 22 },
+    { header: '实测值', key: 'actual', width: 30 },
+    { header: '加固建议', key: 'remediation', width: 40 },
+    { header: '整改状态', key: 'status', width: 12 },
+    { header: '责任人', key: 'owner', width: 14 },
+    { header: '整改期限', key: 'due_date', width: 14 },
+    { header: '备注', key: 'note', width: 28 },
+  ];
+  ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2F6FED' } };
+  const statusColor = { pending: 'FFFDE8E8', in_progress: 'FFFFF4E0', fixed: 'FFE6F6EC', risk_accepted: 'FFEEF1F5' };
+  for (const r of (rows || [])) {
+    const row = ws.addRow({
+      item_id: r.item_id || '',
+      name: r.name || '',
+      severity: r.severity || '',
+      expected: r.expected || '',
+      actual: r.actual == null ? '' : r.actual,
+      remediation: r.remediation || '',
+      status: REMEDIATION_STATUS_TEXT[r.status] || '待整改',
+      owner: r.owner || '',
+      due_date: r.due_date || '',
+      note: r.note || '',
+    });
+    if (statusColor[r.status]) row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: statusColor[r.status] } };
+  }
+  ws.addRow([]);
+  const tip = ws.addRow(['说明：整改状态可填 待整改 / 整改中 / 已整改 / 风险可接受；责任人、整改期限、备注请在系统中填写后导出。']);
+  tip.font = { italic: true, color: { argb: 'FF8A94A6' } };
+  const buf = await wb.xlsx.writeBuffer();
+  return Buffer.from(buf);
+}
+
+module.exports = { exportHtml, exportCsv, exportExcel, exportRemediationExcel };

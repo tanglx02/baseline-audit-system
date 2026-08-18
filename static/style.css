@@ -151,3 +151,41 @@ table.qr-items{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4
 table.qr-items th,table.qr-items td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:middle}
 table.qr-items th{background:#f0f4fa;font-weight:600;font-size:12px}
 table.qr-items tr:nth-child(even){background:#fafcff}
+
+/* 报告页：合规率趋势 */
+.trend-box{margin:6px 0 4px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.trend-box svg{display:block;margin:0 auto}
+/* 报告页：与上期对比 */
+.compare-box{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:6px 0 4px}
+.cmp-item{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center}
+.cmp-num{display:block;font-size:24px;font-weight:800;line-height:1.1}
+.cmp-num.up{color:#c0341d}.cmp-num.ok{color:#1a7f37}.cmp-num.warn{color:#e08a00}
+.cmp-lab{display:block;font-size:12px;color:var(--muted);margin-top:4px}
+/* 报告页：整改跟踪 */
+.rem-hint{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.5}
+.rem-status,.rem-owner,.rem-due,.rem-note{font:inherit;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
+.rem-owner{width:90px}.rem-due{width:130px}.rem-note{width:120px}
+
+/* 概览：分栏 + 面板 */
+.dash-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:8px 0}
+@media(max-width:820px){.dash-cols{grid-template-columns:1fr}}
+.panel{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:#fff}
+.panel h2{font-size:15px;margin:0 0 10px;color:var(--ink)}
+.plat-rows{display:flex;flex-direction:column;gap:8px}
+.plat-row{display:flex;align-items:center;gap:10px;font-size:13px}
+.plat-name{width:90px;color:var(--muted)}
+.plat-bar{flex:1;height:12px;background:#eef1f5;border-radius:6px;overflow:hidden}
+.plat-bar span{display:block;height:100%;background:var(--primary)}
+.plat-num{width:30px;text-align:right;font-weight:600}
+table.mini{width:100%;border-collapse:collapse;font-size:13px}
+table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:7px 6px;text-align:left}
+table.mini th{font-size:12px;color:var(--muted);font-weight:600}
+
+/* 标签筛选 / 标签芯片 */
+.tag-filter{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
+.chip{display:inline-block;font-size:12.5px;background:#eef1f5;color:#4a5568;border-radius:14px;padding:3px 12px;text-decoration:none;border:1px solid transparent}
+.chip:hover{background:#e3e9f2}
+.chip-on{background:var(--primary);color:#fff;border-color:var(--primary)}
+.tag-edit{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.tags-input{font:inherit;padding:3px 7px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink)}
+

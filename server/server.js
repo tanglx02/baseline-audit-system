@@ -46,6 +46,7 @@ app.use((req, res, next) => {
 });
 app.locals.licenseStatus = () => license.loadActiveLicense();
 app.locals.now = () => new Date();
+app.locals.appVersion = () => upgrade.getCurrentVersion().version;
 
 // ---------------------------------------------------------------------------
 // 报告聚合
@@ -103,7 +104,13 @@ function buildScanReport(scanId) {
 // 页面路由
 // ---------------------------------------------------------------------------
 app.get('/', (req, res) => {
-  res.render('dashboard', { stats: db.getDashboardStats(), servers: db.getServers() });
+  res.render('dashboard', {
+    stats: db.getDashboardStats(),
+    servers: db.getServers(),
+    topDevices: db.getTopNonCompliantServers(5),
+    platforms: db.getPlatformDistribution(),
+    tags: db.getAllTags(),
+  });
 });
 
 app.get('/license', (req, res) => {
@@ -151,6 +158,9 @@ app.post('/upload', (req, res) => {
   catch (e) { return res.status(400).send('JSON 解析失败：' + e.message); }
   if (!doc || !doc.host || !Array.isArray(doc.results)) return res.status(400).send('缺少 host 或 results 字段');
   const server = db.upsertServer(doc.host);
+  // 设备标签（采集脚本可在 doc.tags 或 doc.host.tags 携带，逗号分隔）
+  const rawTags = doc.tags || (doc.host && doc.host.tags);
+  if (rawTags != null) db.updateServerTags(server.id, rawTags);
   const catalogId = (doc.catalog && doc.catalog.id) || 'unknown';
   const scanId = db.insertScan({
     server_id: server.id,
@@ -165,17 +175,45 @@ app.post('/upload', (req, res) => {
   res.json({ ok: true, server_id: server.id, scan_id: scanId });
 });
 
-app.get('/servers', (req, res) => res.render('servers', { servers: db.getServers() }));
+app.get('/servers', (req, res) => {
+  let servers = db.getServers();
+  const tag = req.query.tag;
+  if (tag) servers = servers.filter((s) => (s.tags || '').split(',').map((x) => x.trim()).includes(tag));
+  res.render('servers', { servers, tags: db.getAllTags(), activeTag: tag || '' });
+});
 
 app.post('/servers/:id/delete', (req, res) => {
   db.deleteServer(parseInt(req.params.id, 10));
   res.redirect('/servers');
 });
 
+app.post('/servers/:id/tags', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!db.getServer(id)) return res.status(404).json({ error: '服务器不存在' });
+  const s = db.updateServerTags(id, req.body.tags || '');
+  res.json({ ok: true, server: s });
+});
+
 app.get('/servers/:id', (req, res) => {
-  const report = buildReport(parseInt(req.params.id, 10));
+  const id = parseInt(req.params.id, 10);
+  const report = buildReport(id);
   if (!report) return res.status(404).send('服务器不存在');
-  res.render('report', { report, single: false });
+  const trend = db.getServerScanCompliance(id);
+  const remRows = db.getRemediations(id);
+  const remMap = {};
+  for (const r of remRows) remMap[r.item_id] = r;
+  // 与上期对比：最新扫描 vs 上一扫描 的不合规项集合差异
+  const scans = db.getServerScans(id);
+  let compare = null;
+  if (scans.length >= 2) {
+    const latestFails = new Set(db.getScanFindings(scans[0].id).filter((f) => f.status === 'fail').map((f) => f.item_id));
+    const prevFails = new Set(db.getScanFindings(scans[1].id).filter((f) => f.status === 'fail').map((f) => f.item_id));
+    const newFail = [...latestFails].filter((x) => !prevFails.has(x));
+    const fixed = [...prevFails].filter((x) => !latestFails.has(x));
+    const persistent = [...latestFails].filter((x) => prevFails.has(x));
+    compare = { has: true, newFail, fixed, persistent, prevCompliance: trend.length >= 2 ? trend[trend.length - 2].compliance : null };
+  }
+  res.render('report', { report, single: false, trend, remMap, compare });
 });
 
 app.get('/reports/:scanId', (req, res) => {
@@ -305,7 +343,42 @@ app.get('/export/:id/:fmt', async (req, res) => {
   res.status(400).send('不支持的格式');
 });
 
+// 整改清单 Excel：serverId 必填；rows 为 {item_id,name,severity,expected,actual,remediation,status,owner,due_date,note}
+app.post('/export/:id/remediation', async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const server = db.getServer(id);
+  if (!server) return res.status(404).send('服务器不存在');
+  const rows = Array.isArray(req.body.rows) ? req.body.rows : [];
+  try {
+    const buf = await exporter.exportRemediationExcel(server, rows);
+    const ts = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="remediation_${server.hostname}_${ts}.xlsx"`);
+    return res.send(buf);
+  } catch (e) {
+    return res.status(500).send('整改清单导出失败：' + e.message);
+  }
+});
+
 app.get('/health', (req, res) => res.json({ ok: true, licensed: isLicensed() }));
+
+// ---------------------------------------------------------------------------
+// 整改跟踪 API
+// ---------------------------------------------------------------------------
+app.get('/api/servers/:id/remediation', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!db.getServer(id)) return res.status(404).json({ error: '服务器不存在' });
+  res.json({ ok: true, rows: db.getRemediations(id) });
+});
+
+app.post('/api/servers/:id/remediation', (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!db.getServer(id)) return res.status(404).json({ error: '服务器不存在' });
+  const { item_id, status, owner, due_date, note } = req.body || {};
+  if (!item_id) return res.status(400).json({ error: '缺少 item_id' });
+  const row = db.upsertRemediation({ server_id: id, item_id, status, owner, due_date, note });
+  res.json({ ok: true, row });
+});
 
 // ---------------------------------------------------------------------------
 // 升级 & 设置

@@ -75,7 +75,21 @@ CREATE TABLE IF NOT EXISTS used_cardkeys (
   redeemed_by TEXT,
   raw_license TEXT
 );
+CREATE TABLE IF NOT EXISTS remediations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  server_id INTEGER NOT NULL,
+  item_id TEXT,
+  status TEXT DEFAULT 'pending',   -- pending|in_progress|fixed|risk_accepted
+  owner TEXT,
+  due_date TEXT,
+  note TEXT,
+  updated_at TEXT,
+  UNIQUE(server_id, item_id)
+);
 `);
+
+// 兼容旧库：补充 tags 列（新安装已含，旧库需要 ALTER）
+try { db.exec('ALTER TABLE servers ADD COLUMN tags TEXT'); } catch (e) { /* 已存在则忽略 */ }
 
 // ---------------------------------------------------------------------------
 // servers
@@ -204,6 +218,94 @@ function getUsedCardKeys() {
   return db.prepare('SELECT * FROM used_cardkeys ORDER BY id DESC').all();
 }
 
+// ---------------------------------------------------------------------------
+// 设备标签
+// ---------------------------------------------------------------------------
+function updateServerTags(id, tags) {
+  const t = Array.isArray(tags) ? tags.join(',') : String(tags || '');
+  db.prepare('UPDATE servers SET tags = ? WHERE id = ?').run(t, id);
+  return db.prepare('SELECT * FROM servers WHERE id = ?').get(id);
+}
+
+// 返回所有出现过的标签（去重）
+function getAllTags() {
+  const rows = db.prepare('SELECT tags FROM servers WHERE tags IS NOT NULL AND tags <> \'\'').all();
+  const set = new Set();
+  for (const r of rows) String(r.tags || '').split(',').map((x) => x.trim()).filter(Boolean).forEach((t) => set.add(t));
+  return [...set];
+}
+
+// ---------------------------------------------------------------------------
+// 单服务器 历次扫描合规率（趋势）
+// ---------------------------------------------------------------------------
+function getServerScanCompliance(serverId) {
+  const rows = db.prepare(`
+    SELECT sc.id, sc.created_at, sc.target_label, sc.catalog_id,
+      SUM(CASE WHEN f.status='pass' THEN 1 ELSE 0 END) pass,
+      SUM(CASE WHEN f.status='fail' THEN 1 ELSE 0 END) fail,
+      SUM(CASE WHEN f.status='manual' THEN 1 ELSE 0 END) manual,
+      SUM(CASE WHEN f.status='unknown' THEN 1 ELSE 0 END) unknown,
+      COUNT(*) total
+    FROM scans sc LEFT JOIN findings f ON f.scan_id = sc.id
+    WHERE sc.server_id = ?
+    GROUP BY sc.id ORDER BY sc.created_at ASC`).all(serverId);
+  return rows.map((r) => {
+    const denom = (r.pass || 0) + (r.fail || 0);
+    return { ...r, compliance: denom > 0 ? r.pass / denom : null };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 整改跟踪
+// ---------------------------------------------------------------------------
+function getRemediations(serverId) {
+  return db.prepare('SELECT * FROM remediations WHERE server_id = ?').all(serverId);
+}
+function upsertRemediation({ server_id, item_id, status, owner, due_date, note }) {
+  const now = new Date().toISOString();
+  const existing = db.prepare('SELECT * FROM remediations WHERE server_id = ? AND item_id = ?').get(server_id, item_id);
+  if (existing) {
+    db.prepare(`UPDATE remediations SET status=?, owner=?, due_date=?, note=?, updated_at=? WHERE server_id=? AND item_id=?`)
+      .run(status || existing.status, owner == null ? existing.owner : owner, due_date == null ? existing.due_date : due_date, note == null ? existing.note : note, now, server_id, item_id);
+  } else {
+    db.prepare(`INSERT INTO remediations (server_id, item_id, status, owner, due_date, note, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`)
+      .run(server_id, item_id, status || 'pending', owner || '', due_date || '', note || '', now);
+  }
+  return db.prepare('SELECT * FROM remediations WHERE server_id = ? AND item_id = ?').get(server_id, item_id);
+}
+
+// ---------------------------------------------------------------------------
+// 概览分析
+// ---------------------------------------------------------------------------
+function getTopNonCompliantServers(n) {
+  const rows = db.prepare(`
+    WITH latest AS (SELECT server_id, MAX(id) AS scan_id FROM scans GROUP BY server_id)
+    SELECT s.id AS server_id, s.hostname, s.platform, s.tags,
+      SUM(CASE WHEN f.status='pass' THEN 1 ELSE 0 END) pass,
+      SUM(CASE WHEN f.status='fail' THEN 1 ELSE 0 END) fail,
+      COUNT(*) total
+    FROM latest l
+      JOIN scans sc ON sc.id = l.scan_id
+      JOIN findings f ON f.scan_id = sc.id
+      JOIN servers s ON s.id = l.server_id
+    GROUP BY s.id
+    ORDER BY (CAST(SUM(CASE WHEN f.status='fail' THEN 1 ELSE 0 END) AS REAL) / COUNT(*)) DESC,
+             SUM(CASE WHEN f.status='fail' THEN 1 ELSE 0 END) DESC
+    LIMIT ?`).all(n || 5);
+  return rows.map((r) => {
+    const denom = (r.pass || 0) + (r.fail || 0);
+    return { ...r, compliance: denom > 0 ? r.pass / denom : null };
+  });
+}
+
+function getPlatformDistribution() {
+  const rows = db.prepare('SELECT platform, COUNT(*) c FROM servers GROUP BY platform').all();
+  const map = {};
+  for (const r of rows) map[r.platform || 'unknown'] = r.c;
+  return map;
+}
+
 module.exports = {
   db,
   upsertServer,
@@ -222,5 +324,12 @@ module.exports = {
   isCardKeyUsed,
   markCardKeyUsed,
   getUsedCardKeys,
+  updateServerTags,
+  getAllTags,
+  getServerScanCompliance,
+  getRemediations,
+  upsertRemediation,
+  getTopNonCompliantServers,
+  getPlatformDistribution,
   INSTANCE_DIR,
 };

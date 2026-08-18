@@ -1,6 +1,6 @@
 <% const lic = licenseStatus(); %>
 <header class="topbar">
-  <div class="brand">安全基线核查系统 <span class="ver">v2.0</span></div>
+  <div class="brand">安全基线核查系统 <span class="ver">v<%= appVersion() %></span></div>
   <nav class="nav">
     <a href="/" class="<%= active==='dashboard'?'cur':'' %>">概览</a>
     <a href="/upload" class="<%= active==='upload'?'cur':'' %>">上传报告</a>

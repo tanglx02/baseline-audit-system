@@ -12,6 +12,45 @@
     <div class="card"><div class="n"><%= stats.compliance==null?'—':(stats.compliance*100).toFixed(1)+'%' %></div><div class="l">总体合规率</div></div>
   </div>
 
+  <div class="dash-cols">
+    <div class="panel">
+      <h2>平台分布</h2>
+      <div class="plat-rows">
+        <% Object.keys(platforms||{}).forEach(function(p){ %>
+          <div class="plat-row"><span class="plat-name"><%= p %></span><span class="plat-bar"><span style="width:<%= (platforms[p]/stats.servers*100)||0 %>%"></span></span><span class="plat-num"><%= platforms[p] %></span></div>
+        <% }); %>
+        <% if (!platforms || !Object.keys(platforms).length) { %><p class="muted">暂无数据</p><% } %>
+      </div>
+      <% if (tags && tags.length) { %>
+      <h2 style="margin-top:14px">标签</h2>
+      <div class="tag-filter">
+        <% tags.forEach(function(t){ %><a class="chip" href="/servers?tag=<%= encodeURIComponent(t) %>"><%= t %></a><% }); %>
+      </div>
+      <% } %>
+    </div>
+
+    <div class="panel">
+      <h2>不合规 TOP 设备</h2>
+      <% if (!topDevices || !topDevices.length) { %>
+        <p class="muted">暂无设备数据。</p>
+      <% } else { %>
+      <table class="mini">
+        <thead><tr><th>主机</th><th>平台</th><th>合规率</th><th>不合规</th></tr></thead>
+        <tbody>
+        <% topDevices.forEach(function(d){ %>
+          <tr>
+            <td><a href="/servers/<%= d.server_id %>"><%= d.hostname %></a></td>
+            <td><span class="badge-plat <%= d.platform %>"><%= d.platform %></span></td>
+            <td><b style="color:<%= (d.compliance!=null && d.compliance>=0.9)?'#1a7f37':(d.compliance>=0.7?'#2f6fed':'#c0341d') %>"><%= d.compliance!=null?(d.compliance*100).toFixed(1)+'%':'—' %></b></td>
+            <td><span class="badge bad"><%= d.fail %></span></td>
+          </tr>
+        <% }); %>
+        </tbody>
+      </table>
+      <% } %>
+    </div>
+  </div>
+
   <h2>已接入服务器</h2>
   <% if (servers.length === 0) { %>
     <p class="muted">尚未上传任何基线报告。<a href="/upload">上传一份采集结果</a> 或 <a href="/download">下载采集脚本</a>。</p>
